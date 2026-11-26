@@ -1,6 +1,7 @@
 #include "monitor.h"
 
 #include <WiFi.h>
+#include <esp_heap_caps.h>
 #include <freertos/FreeRTOS.h>
 #include <freertos/semphr.h>
 
@@ -80,6 +81,11 @@ void poll() {
   lastPoll = millis();
   logger::ReadResult r = logger::read(loggerIp, cfg.loggerSn);
   if (!r.ok) {
+    // Поодинокі збої — логер саме відповідав іншому клієнту (РК, застосунок). Ще раз за 2 с, а тоді вже збій.
+    delay(2000);
+    r = logger::read(loggerIp, cfg.loggerSn);
+  }
+  if (!r.ok) {
     fails++;
     if (fails == 1 || fails % 10 == 0) evlog::add("Логер: %s (%d раз поспіль)", r.error, fails);
     if (fails >= LOGGER_FAILS_SEARCH) needSearch = true;
@@ -111,6 +117,7 @@ void pollSiren() {
   size_t len = 0;
   https::Request req;
   req.url = url.c_str();
+  req.timeoutMs = SIREN_TIMEOUT_MS;
   https::Response res = https::get(req, [&](Stream& s) {
     len = s.readBytes(body, sizeof body - 1);
     body[len] = 0;
@@ -119,11 +126,17 @@ void pollSiren() {
   siren::Alert a;
   bool ok = res.status == 200 && res.bodyOk && siren::parse(body, len, &a) == siren::Parse::Ok;
   Lock l;
+  static int sirenFails = 0;
   if (!ok) {
-    if (!S.alertFailed) evlog::add("Тривоги: siren.pp.ua не відповів (%d)", res.status);
+    // Пам'ять у журнал: без PSRAM TLS потребує ~40 КБ суцільним блоком
+    if (sirenFails++ % 10 == 0)
+      evlog::add("Тривоги: siren.pp.ua не відповів (%d), вільно %u КБ, блок %u КБ", res.status,
+                 (unsigned)(ESP.getFreeHeap() / 1024), (unsigned)(heap_caps_get_largest_free_block(MALLOC_CAP_8BIT) / 1024));
     S.alertFailed = true;
     return;
   }
+  if (sirenFails) evlog::add("Тривоги: siren.pp.ua знову відповідає");
+  sirenFails = 0;
   if (a.active != S.alert.active || a.red != S.alert.red)
     evlog::add("Тривога: %s", a.active ? a.head : "немає");
   S.alertFailed = false;
@@ -139,22 +152,19 @@ void task(void*) {
       continue;
     }
     if (needSearch && (lastSearch == 0 || millis() - lastSearch > 60000UL)) search();
-    if (!needSearch && !S.unsupported && (lastPoll == 0 || millis() - lastPoll >= (LOGGER_POLL_SECONDS - 5) * 1000UL)) {
-      // З годинником — у свою секунду циклу (логер погано тримає кілька з'єднань одночасно); без нього — просто раз на 30 с
-      int64_t now = clockNow();
-      bool due;
-      if (lastPoll == 0) {
-        due = true;
-      } else if (now) {
-        int phase = (int)(now % LOGGER_POLL_SECONDS);
-        due = phase >= LOGGER_POLL_OFFSET && phase < LOGGER_POLL_OFFSET + 5;
-      } else {
-        due = millis() - lastPoll >= LOGGER_POLL_SECONDS * 1000UL;
-      }
+    int64_t now = clockNow();
+    int phase = now ? (int)(now % LOGGER_POLL_SECONDS) : -1;
+    // Логер — першим. Своя половина циклу — з :15 (інші клієнти логера зазвичай на :00/:30); пропустили її
+    // (щось затрималось) — опитуємо все одно, щоб між зчитуваннями не було більше ~45 с.
+    if (!needSearch && !S.unsupported) {
+      uint32_t since = millis() - lastPoll;
+      bool due = lastPoll == 0 || since >= (LOGGER_POLL_SECONDS + 15) * 1000UL ||
+                 (since >= (LOGGER_POLL_SECONDS - 5) * 1000UL && (phase < 0 || phase >= LOGGER_POLL_OFFSET));
       if (due) poll();
     }
-    // Тривоги — лише з регіоном і після синхронізації часу (без годинника не порахувати «з HH:MM»)
-    if (cfg.regionId.length() && net::timeValid() &&
+    // Тривоги — лише з регіоном і після синхронізації часу; і лише в :20–:27 кожного півхвилинного циклу,
+    // щоб навіть зависле з'єднання (до SIREN_TIMEOUT_MS) не налізло на час логера
+    if (cfg.regionId.length() && net::timeValid() && phase >= LOGGER_POLL_OFFSET + 5 && phase < LOGGER_POLL_OFFSET + 12 &&
         (lastSiren == 0 || millis() - lastSiren >= SIREN_POLL_SECONDS * 1000UL))
       pollSiren();
     delay(200);

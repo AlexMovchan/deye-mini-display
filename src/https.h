@@ -10,6 +10,7 @@ struct Request {
   const char* url;
   const char* bearer = nullptr;           // Authorization: Bearer …
   const char* ifModifiedSince = nullptr;  // для 304
+  int timeoutMs = 0;                      // 0 — HTTP_TIMEOUT_MS
 };
 
 struct Response {

@@ -12,10 +12,12 @@ Response get(const Request& req, const std::function<bool(Stream&)>& onBody) {
   Response res;
   WiFiClientSecure client;
   client.setCACert(ROOT_CA_PEM);
-  client.setTimeout(HTTP_TIMEOUT_MS / 1000);
+  const int timeout = req.timeoutMs > 0 ? req.timeoutMs : HTTP_TIMEOUT_MS;
+  client.setTimeout((timeout + 999) / 1000);
+  client.setHandshakeTimeout((timeout + 999) / 1000);
   HTTPClient http;
-  http.setTimeout(HTTP_TIMEOUT_MS);
-  http.setConnectTimeout(HTTP_TIMEOUT_MS);
+  http.setTimeout(timeout);
+  http.setConnectTimeout(timeout);
   http.useHTTP10(true);  // без chunked — тіло можна парсити прямо з потоку
   http.setReuse(false);
   if (!http.begin(client, req.url)) {
@@ -33,7 +35,7 @@ Response get(const Request& req, const std::function<bool(Stream&)>& onBody) {
     snprintf(res.lastModified, sizeof res.lastModified, "%s", http.header("Last-Modified").c_str());
     Stream* s = http.getStreamPtr();
     if (s) {
-      s->setTimeout(HTTP_TIMEOUT_MS);
+      s->setTimeout(timeout);
       res.bodyOk = onBody(*s);
     }
   }

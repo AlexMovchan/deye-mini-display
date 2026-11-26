@@ -2,7 +2,7 @@
 // Константи прошивки. Тут НЕМАЄ і не може бути жодних даних користувача (Wi-Fi, серійник, адреси):
 // усе це вводиться на платі під час налаштування й лежить у NVS (src/settings.cpp).
 
-#define FW_VERSION "0.1.1"
+#define FW_VERSION "0.1.2"
 #define HOSTNAME "deye-mini"
 
 // ── Налаштування: точка доступу й кнопка ──
@@ -31,6 +31,7 @@
 // ── Тривоги: siren.pp.ua ──
 #define SIREN_URL_PREFIX     "https://siren.pp.ua/api/v3/alerts/"
 #define SIREN_POLL_SECONDS   60               // 1 запит на хвилину (ліміт сервісу — 50/хв з IP)
+#define SIREN_TIMEOUT_MS     4000             // короткий: зависле HTTPS не має з'їдати час логера
 #define SIREN_STALE_SECONDS  300              // без відповіді стільки → «Тривога: немає даних»
 #define HTTP_TIMEOUT_MS      8000
 #define HTTP_USER_AGENT      "deye-mini-display/" FW_VERSION " (+https://github.com/AlexMovchan/deye-mini-display)"
