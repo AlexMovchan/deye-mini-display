@@ -254,7 +254,7 @@ void createMap() {
   G.clock = label(G.card, &inter_14_semi, col::TEXT);
   lv_obj_set_width(G.clock, 44);
   lv_obj_set_style_text_align(G.clock, LV_TEXT_ALIGN_RIGHT, 0);
-  lv_obj_set_x(G.clock, CARD_W - 4 - 10 - 44);
+  lv_obj_set_x(G.clock, 240 - 2 * M - 10 - 44);  // як на основному екрані: рамка картки 2 px = рамка рядка тривоги
   baseline(G.clock, 20);
   createWifi(G.wifi, G.card);
   // 4 рядки рівномірно на всю висоту під заголовком
@@ -417,7 +417,7 @@ void showMap(const outage::MapModel& m, tiles::Wifi wifi) {
   lv_obj_set_style_bg_color(G.scr, c(m.frame), 0);
   setText(G.title, m.title, col::TEXT);
   setText(G.clock, m.clock, col::TEXT);
-  applyWifi(G.wifi, wifi, CARD_W - 4 - 10 - textWidth(m.clock, &inter_14_semi) - 6, 6);
+  applyWifi(G.wifi, wifi, 240 - 2 * M - 10 - textWidth(m.clock, &inter_14_semi) - 6 - 4, 6);  // як на основному
   bool rows = m.kind == outage::MapKind::Rows;
   for (int k = 0; k < outage::ROWS; k++) {
     bool on = rows && k < m.count;
