@@ -1,0 +1,35 @@
+# Графіки відключень: раз на 30 хв забрати з сайтів обленерго, звести до спільного формату (outages/README.md)
+# і опублікувати на GitHub Pages. Поки — лише ручний запуск для перевірки, чи пускають сайти сервери GitHub.
+name: outages
+
+on:
+  workflow_dispatch:
+  # schedule:
+  #   - cron: "7,37 * * * *"   # увімкнути після перевірки доступу
+
+permissions:
+  contents: read
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Забрати графіки
+        run: python outages/fetch.py out
+      - name: Результат
+        if: always()
+        run: |
+          ls -R out | head -50 || true
+          cat out/ztoe/index.json || true
+          cat out/yasno-kyiv/index.json || true
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: outages
+          path: out
+          if-no-files-found: ignore

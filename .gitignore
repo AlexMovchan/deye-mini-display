@@ -3,3 +3,4 @@
 tools/check_board.log
 *.ppm
 __pycache__/
+outages/out/
