@@ -226,8 +226,9 @@ void pollSiren() {
   if (!ok) {
     // Пам'ять у журнал: без PSRAM TLS потребує ~40 КБ суцільним блоком
     if (sirenFails++ % 10 == 0)
-      evlog::add("Тривоги: siren.pp.ua не відповів (%d), вільно %u КБ, блок %u КБ", res.status,
-                 (unsigned)(ESP.getFreeHeap() / 1024), (unsigned)(heap_caps_get_largest_free_block(MALLOC_CAP_8BIT) / 1024));
+      evlog::add("Тривоги: siren.pp.ua не відповів (%d), вільно %u КБ, блок %u КБ; %s", res.status,
+                 (unsigned)(ESP.getFreeHeap() / 1024), (unsigned)(heap_caps_get_largest_free_block(MALLOC_CAP_8BIT) / 1024),
+                 res.error);
     S.alertFailed = true;
     return;
   }

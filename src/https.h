@@ -17,6 +17,7 @@ struct Response {
   int status = 0;            // HTTP-код або < 0 — помилка з'єднання/TLS
   char lastModified[40] = "";
   bool bodyOk = false;       // onBody повернув true
+  char error[96] = "";       // при збої з'єднання: що сказав TLS (mbedTLS) — для журналу
 };
 
 // onBody отримує потік тіла (HTTP/1.0, без chunked) лише для відповіді 200.

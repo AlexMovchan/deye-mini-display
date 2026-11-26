@@ -31,30 +31,28 @@ bool parse(const char* body, size_t len, Schedule* out);
 // Черга з назви: "47.1", "3.2" (цифри, крапка, цифра)
 bool validGroup(const char* g);
 
-// ── Екран 2 ──
-struct Cell {
-  char hour[6];        // "07:00"
-  bool first, second;  // світло є в першу / другу половину години
-  bool now;
+// ── Екран 2 (рішення власника 26.11.2026): до 4 рядків-проміжків від поточного — «14:00–18:00» білим, коли світло
+// є, червоним — коли немає. Замість рядків — лише «Екстрені відключення» або «Даних немає».
+constexpr int ROWS = 4;
+
+struct Row {
+  char text[24] = "";   // "14:00–18:00"
+  bool light = false;   // білим (є) / червоним (немає)
+  bool tomorrow = false;
 };
 
-struct DayView {
-  bool cells = false;  // показувати 24 клітинки; інакше — note
-  char title[64] = "";
-  char note[48] = "";
-  Cell c[24];
-};
+enum class MapKind : uint8_t { Rows, Emergency, NoData };
 
 struct MapModel {
   tiles::Rgb frame = tiles::color::FRAME_CALM;
-  char title[32] = "";    // «Черга 47.1»
+  char title[32] = "";  // «Черга 47.1»
   char clock[6] = "";
-  char updated[40] = "";  // «графік на 21:37» / «графік недоступний»
-  tiles::Rgb updatedColor = tiles::color::DIM;
-  DayView today, tomorrow;
+  MapKind kind = MapKind::NoData;
+  Row rows[ROWS];
+  int count = 0;
 };
 
-// staleAfter — скільки секунд графік вважається свіжим (далі — сірим «графік на …»).
+// staleAfter — скільки секунд графік ще годиться (далі — «Даних немає»).
 MapModel buildMap(const Schedule* s, const char* group, int64_t now, tiles::Rgb frame, int staleAfter);
 
 }  // namespace outage

@@ -2,7 +2,7 @@
 // Константи прошивки. Тут НЕМАЄ і не може бути жодних даних користувача (Wi-Fi, серійник, адреси):
 // усе це вводиться на платі під час налаштування й лежить у NVS (src/settings.cpp).
 
-#define FW_VERSION "0.2.0"
+#define FW_VERSION "0.2.4"
 #define HOSTNAME "deye-mini"
 
 // ── Налаштування: точка доступу й кнопка ──
@@ -41,7 +41,7 @@
 #define OUTAGE_URL_PREFIX    "https://alexmovchan.github.io/deye-mini-display/outages/"
 #define OUTAGE_POLL_MINUTES  30
 #define OUTAGE_RETRY_MINUTES 5
-#define OUTAGE_STALE_HOURS   3                // графік старший → «графік на HH:MM (давно)»
+#define OUTAGE_STALE_HOURS   12               // графік старший (нормалізатор чи інтернет мовчать) → «Даних немає»
 #define KYIV_RECHECK_HOURS   24               // Київ: перевірка черги за адресою (Yasno переносить будинки)
 #define HTTP_USER_AGENT      "deye-mini-display/" FW_VERSION " (+https://github.com/AlexMovchan/deye-mini-display)"
 

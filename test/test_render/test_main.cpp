@@ -26,6 +26,12 @@ static void flush(lv_display_t* d, const lv_area_t* a, uint8_t* px) {
   lv_display_flush_ready(d);
 }
 
+static void memLog(const char* what) {
+  unsigned u, t;
+  ui::memoryStats(&u, &t);
+  printf("LVGL %s: %u/%u KB\n", what, u, t);
+}
+
 static void save(const char* name) {
   for (int i = 0; i < 5; i++) {
     fakeTick += 50;
@@ -66,6 +72,7 @@ static tiles::Input calm() {
 static void test_render_tiles() {
   ui::showTiles(tiles::build(calm()));
   save("tiles_calm");
+  memLog("tiles");
 
   tiles::Input in = calm();
   in.grid = inv::Grid::Off;
@@ -119,6 +126,7 @@ static void test_render_setup() {
   strcpy(v.note, "Скинути налаштування — утримуйте BOOT 5 с");
   ui::showSetup(v);
   save("setup_start");
+  memLog("setup");
 
   v.wifi.state = ui::Step::Done;
   strcpy(v.wifi.text, "Wi-Fi: Home_2G");
@@ -141,11 +149,18 @@ static void test_render_map() {
       "{\"date\":\"2026-11-27\",\"status\":\"applies\",\"off\":\"111111110000000000111111110000000000111111110000\"}]}";
   outage::Schedule s;
   TEST_ASSERT_TRUE(outage::parse(j, strlen(j), &s));
-  ui::showMap(outage::buildMap(&s, "47.1", kyiv(26, 21, 40), tiles::color::FRAME_CALM, 3 * 3600), tiles::Wifi::Ok);
+  ui::showMap(outage::buildMap(&s, "47.1", kyiv(26, 7, 15), tiles::color::FRAME_CALM, 48 * 3600), tiles::Wifi::Ok);
   save("map_both");
+  memLog("map");
   s.days[1].status = outage::Status::Waiting;
-  ui::showMap(outage::buildMap(&s, "47.1", kyiv(26, 15, 10), tiles::color::FRAME_RED, 3 * 3600), tiles::Wifi::Weak);
+  ui::showMap(outage::buildMap(&s, "47.1", kyiv(26, 21, 10), tiles::color::FRAME_RED, 48 * 3600), tiles::Wifi::Weak);
+  save("map_evening");
+  ui::showMap(outage::buildMap(nullptr, "47.1", kyiv(26, 21, 10), tiles::color::FRAME_CALM, 48 * 3600), tiles::Wifi::Off);
   save("map_no_tomorrow");
+  memLog("map2");
+  ui::showTiles(tiles::build(calm()));
+  save("tiles_after_map");
+  memLog("tiles_after_map");
 }
 
 int main() {

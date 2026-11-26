@@ -1,6 +1,7 @@
 #include "https.h"
 
 #include <HTTPClient.h>
+#include <WiFi.h>
 #include <WiFiClientSecure.h>
 
 #include "config.h"
@@ -31,6 +32,15 @@ Response get(const Request& req, const std::function<bool(Stream&)>& onBody) {
   const char* keys[] = {"Last-Modified"};
   http.collectHeaders(keys, 1);
   res.status = http.GET();
+  if (res.status < 0) {
+    char tls[80] = "";
+    int code = client.lastError(tls, sizeof tls);
+    IPAddress ip;
+    String url = req.url;
+    String host = url.substring(8, url.indexOf('/', 8));  // https://<host>/...
+    bool dns = WiFi.hostByName(host.c_str(), ip);
+    snprintf(res.error, sizeof res.error, "TLS %d %s; DNS %s", code, tls, dns ? ip.toString().c_str() : "не знайшов");
+  }
   if (res.status == 200) {
     snprintf(res.lastModified, sizeof res.lastModified, "%s", http.header("Last-Modified").c_str());
     Stream* s = http.getStreamPtr();

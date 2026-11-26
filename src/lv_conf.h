@@ -6,7 +6,18 @@
 
 // Пам'ять LVGL — зі звичайної купи (malloc): ~300 об'єктів двох екранів у фіксовані 40 КБ не влазили
 // (LVGL при нестачі зависає в LV_ASSERT). PSRAM немає — усе у внутрішній; буфер малювання — board.cpp
-#define LV_USE_STDLIB_MALLOC LV_STDLIB_CLIB
+// Свій запас пам'яті для LVGL (0.2.1): з системної купи LVGL брала сотні дрібних шматків, і купа дробилась —
+// найбільший вільний блок падав до 12 КБ, а HTTPS (siren.pp.ua, Yasno, GitHub) потребує ~40 КБ суцільно.
+#define LV_USE_STDLIB_MALLOC LV_STDLIB_BUILTIN
+#if defined(NATIVE_TEST)
+#define LV_MEM_SIZE (256 * 1024)  // на ПК вказівники 8 байт — об'єкти вдвічі більші
+#else
+#define LV_MEM_SIZE (48 * 1024)   // плата: в пам'яті одночасно лише один екран (плитки або графік); див. ui.cpp
+#endif
+// Запас — одним шматком із купи на старті (поки вона ще не подрібнена), а не статичним масивом: статично 72 КБ
+// не вміщаються в сегмент DRAM разом з рештою прошивки
+#define LV_MEM_POOL_INCLUDE <stdlib.h>
+#define LV_MEM_POOL_ALLOC malloc
 #define LV_USE_STDLIB_STRING LV_STDLIB_CLIB
 
 #if defined(NATIVE_TEST) && !defined(__ASSEMBLY__)  // lv_conf.h підключається і в асемблерні файли LVGL

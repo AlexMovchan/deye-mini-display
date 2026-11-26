@@ -2,6 +2,9 @@
 
 #include <ArduinoJson.h>
 
+#include <esp_heap_caps.h>
+
+#include "event_log.h"
 #include "https.h"
 
 namespace yasno {
@@ -52,7 +55,11 @@ std::vector<Item> list(const String& url, int max, String* error) {
     }
     return true;
   });
-  if (error && res.status != 200) *error = "Yasno: HTTP " + String(res.status);
+  if (res.status != 200) {
+    if (error) *error = "Yasno: HTTP " + String(res.status);
+    evlog::add("Yasno: HTTP %d, вільно %u КБ, блок %u КБ; %s", res.status, (unsigned)(ESP.getFreeHeap() / 1024),
+               (unsigned)(heap_caps_get_largest_free_block(MALLOC_CAP_8BIT) / 1024), res.error);
+  }
   return out;
 }
 }  // namespace

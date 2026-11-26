@@ -230,84 +230,16 @@ void createMain() {
   lv_obj_set_pos(S.msgText, 14, 76);
 }
 
-// ── Екран 2: графік відключень по годинах ──
-// Сьогодні — 24 клітинки (4×6) з половинками по 30 хв: біла — світло є, чорна — немає; поточна година в жовтій
-// рамці 3 px із темною смужкою всередині. Завтра — смужка з 48 півгодинок (на 24 клітинки місця немає).
+// ── Екран 2: графік відключень — до 4 рядків-проміжків від поточного (рішення власника 26.11.2026) ──
+// «14:00–18:00» білим — світло є, червоним — немає. Замість рядків — «Екстрені відключення» або «Даних немає».
 constexpr int CARD_W = 240 - 2 * M;
-constexpr int CELL_W = 49, CELL_H = 26, CELL_GAP = 4;
-constexpr int STRIP_X = 10, STRIP_W = 200, STRIP_H = 14;
+constexpr int ROWS_Y0 = 40, ROWS_Y1 = 320 - 2 * M - 8;
 
-struct CellUi {
-  lv_obj_t *box, *left, *right, *pill, *text, *boltBg, *bolt, *slash, *ring;
-};
 struct MapUi {
-  lv_obj_t *scr, *card, *title, *clock, *todayTitle, *todayNote, *sep, *tomorrowTitle, *tomorrowNote, *strip, *updated;
-  lv_obj_t* stripSeg[48];
-  lv_obj_t* stripLbl[5];
+  lv_obj_t *scr, *card, *title, *clock, *message;
+  lv_obj_t *row[outage::ROWS], *rowNote[outage::ROWS];
   WifiUi wifi;
-  CellUi cells[24];
 } G;
-
-const lv_point_precise_t CELL_BOLT[] = {{8, 0}, {1, 8}, {6, 8}, {5, 13}, {11, 5}, {6, 5}, {8, 0}};
-const lv_point_precise_t CELL_SLASH[] = {{0, 1}, {10, 12}};
-
-lv_obj_t* noteBox(lv_obj_t* parent, int y, int h) {
-  lv_obj_t* b = box(parent, 8, y, CARD_W - 16, h, col::CARD, 6);
-  lv_obj_set_style_border_width(b, 1, 0);
-  lv_obj_set_style_border_color(b, c(col::BORDER), 0);
-  lv_obj_t* l = label(b, &inter_12, col::MUTED);
-  lv_obj_center(l);
-  return b;
-}
-
-void createCell(CellUi& u, lv_obj_t* parent, int x, int y) {
-  u.box = box(parent, x, y, CELL_W, CELL_H, col::CARD_OFF, 6);
-  lv_obj_set_style_border_width(u.box, 1, 0);
-  lv_obj_set_style_clip_corner(u.box, true, 0);
-  u.left = box(u.box, 0, 0, CELL_W / 2, CELL_H, col::CARD_LIGHT, 0);
-  u.right = box(u.box, CELL_W / 2, 0, CELL_W - CELL_W / 2, CELL_H, col::CARD_LIGHT, 0);
-  u.pill = box(u.box, 0, 3, 10, CELL_H - 8, col::CARD, 4);
-  u.text = label(u.box, &inter_10, col::TEXT);
-  u.boltBg = line(u.box, CELL_BOLT, 7, 3, col::TEXT_DARK);
-  u.bolt = line(u.box, CELL_BOLT, 7, 1, col::BOLT);
-  u.slash = line(u.box, CELL_SLASH, 2, 1, col::UNIT);
-  u.ring = box(u.box, 3, 3, CELL_W - 6, CELL_H - 6, col::CARD, 3);
-  lv_obj_set_style_bg_opa(u.ring, LV_OPA_TRANSP, 0);
-  lv_obj_set_style_border_width(u.ring, 1, 0);
-  lv_obj_set_style_border_color(u.ring, c(col::CARD), 0);
-}
-
-void applyCell(CellUi& u, const outage::Cell& cell) {
-  bool full = cell.first && cell.second, none = !cell.first && !cell.second, half = !full && !none;
-  // Дочірні об'єкти рахуються від внутрішнього краю рамки: рамка «зараз» 3 px замість 1 зсуває їх на 2 px
-  const int off = cell.now ? -2 : 0;
-  lv_obj_set_style_border_color(u.box, c(cell.now ? col::FRAME_YELLOW : full ? col::CARD_LIGHT : col::CARD_EDGE), 0);
-  lv_obj_set_style_border_width(u.box, cell.now ? 3 : 1, 0);
-  show(u.ring, cell.now);
-  show(u.left, cell.first);
-  show(u.right, cell.second);
-  lv_obj_set_pos(u.left, off, off);
-  lv_obj_set_pos(u.right, CELL_W / 2 + off, off);
-  lv_obj_set_pos(u.ring, 3 + off, 3 + off);
-  lv_obj_set_style_line_color(u.bolt, c(full ? col::BOLT : col::UNIT), 0);
-  show(u.boltBg, full);
-  show(u.bolt, full || none);
-  show(u.slash, none);
-  setText(u.text, cell.hour, full ? col::TEXT_DARK : half ? col::TEXT : col::UNIT);
-  int tw = textWidth(cell.hour, &inter_10);
-  int iw = (full || none) ? 14 : 0;
-  int x0 = (CELL_W - tw - iw) / 2;
-  lv_obj_set_pos(u.boltBg, x0 + off, 6 + off);
-  lv_obj_set_pos(u.bolt, x0 + off, 6 + off);
-  lv_obj_set_pos(u.slash, x0 + off, 6 + off);
-  lv_obj_set_x(u.text, x0 + iw + off);
-  baseline(u.text, 17 + off);
-  show(u.pill, half);
-  if (half) {
-    lv_obj_set_pos(u.pill, x0 - 3 + off, 3 + off);
-    lv_obj_set_width(u.pill, tw + 6);
-  }
-}
 
 void createMap() {
   G.scr = lv_obj_create(nullptr);
@@ -325,36 +257,21 @@ void createMap() {
   lv_obj_set_x(G.clock, CARD_W - 4 - 10 - 44);
   baseline(G.clock, 20);
   createWifi(G.wifi, G.card);
-  G.todayTitle = label(G.card, &inter_12_semi, col::TEXT);
-  lv_obj_set_x(G.todayTitle, 10);
-  baseline(G.todayTitle, 42);
-  for (int h = 0; h < 24; h++)
-    createCell(G.cells[h], G.card, 6 + (h % 4) * (CELL_W + CELL_GAP), 48 + (h / 4) * (CELL_H + CELL_GAP));
-  G.todayNote = noteBox(G.card, 48, 6 * (CELL_H + CELL_GAP) - CELL_GAP);
-  G.sep = box(G.card, 6, 232, CARD_W - 16, 2, col::BORDER, 1);
-  G.tomorrowTitle = label(G.card, &inter_12_semi, col::TEXT);
-  lv_obj_set_x(G.tomorrowTitle, 10);
-  baseline(G.tomorrowTitle, 252);
-  G.strip = box(G.card, STRIP_X, 258, STRIP_W, STRIP_H, col::CARD_OFF, 3);
-  lv_obj_set_style_clip_corner(G.strip, true, 0);
-  for (int i = 0; i < 48; i++) {
-    int x0 = i * STRIP_W / 48, x1 = (i + 1) * STRIP_W / 48;
-    G.stripSeg[i] = box(G.strip, x0, 0, x1 - x0, STRIP_H, col::CARD_LIGHT, 0);
+  // 4 рядки рівномірно на всю висоту під заголовком
+  const int step = (ROWS_Y1 - ROWS_Y0) / outage::ROWS;
+  for (int k = 0; k < outage::ROWS; k++) {
+    int base = ROWS_Y0 + step * k + step / 2 + 8;
+    G.row[k] = label(G.card, &inter_18_semi, col::TEXT);
+    lv_obj_set_x(G.row[k], 16);
+    baseline(G.row[k], base);
+    G.rowNote[k] = label(G.card, &inter_12, col::MUTED);
+    lv_label_set_text(G.rowNote[k], "завтра");
+    lv_obj_set_x(G.rowNote[k], CARD_W - 4 - 16 - textWidth("завтра", &inter_12));
+    baseline(G.rowNote[k], base);
   }
-  const char* ticks[5] = {"00", "06", "12", "18", "24"};
-  for (int i = 0; i < 5; i++) {
-    G.stripLbl[i] = label(G.card, &inter_10, col::MUTED);
-    lv_label_set_text(G.stripLbl[i], ticks[i]);
-    int x = STRIP_X + i * STRIP_W / 4 - textWidth(ticks[i], &inter_10) / 2;
-    lv_obj_set_x(G.stripLbl[i], x < 4 ? 4 : x);
-    baseline(G.stripLbl[i], 284);
-  }
-  G.tomorrowNote = noteBox(G.card, 258, 30);
-  G.updated = label(G.card, &inter_11, col::DIM);
-  lv_obj_set_width(G.updated, CARD_W - 24);
-  lv_obj_set_style_text_align(G.updated, LV_TEXT_ALIGN_RIGHT, 0);
-  lv_obj_set_x(G.updated, 10);
-  baseline(G.updated, 298);
+  G.message = wrapLabel(G.card, &inter_18_semi, col::MUTED, CARD_W - 32);
+  lv_obj_set_style_text_align(G.message, LV_TEXT_ALIGN_CENTER, 0);
+  lv_obj_set_pos(G.message, 14, 130);
 }
 
 // ── Налаштування ──
@@ -427,14 +344,44 @@ void applyStep(StepUi& s, const Step& st) {
 }
 }  // namespace
 
-void begin() {
-  createMain();
-  createMap();
-  createSetup();
-  lv_screen_load(S.scr);
+// Екрани створюються, коли знадобляться: у режимі налаштування — лише екран налаштування, у робочому — плитки
+// й (за потреби) графік. Так у запасі LVGL лишається місце.
+void begin() {}
+
+void memoryStats(unsigned* usedKb, unsigned* totalKb) {
+  lv_mem_monitor_t mon;
+  lv_mem_monitor(&mon);
+  *usedKb = (unsigned)((mon.total_size - mon.free_size) / 1024);
+  *totalKb = (unsigned)(mon.total_size / 1024);
+}
+
+// У запасі LVGL одночасно лише один із двох робочих екранів (плитки або графік): старий видаляємо ДО створення
+// нового, через порожній проміжний екран — так пік пам'яті не перевищує більшого з двох.
+lv_obj_t* blankScr = nullptr;
+
+template <class Old>
+void dropScreen(Old& old) {
+  if (!old.scr) return;
+  blankScr = lv_obj_create(nullptr);
+  lv_screen_load(blankScr);
+  lv_obj_delete(old.scr);
+  old = Old{};
+}
+
+void loadScreen(lv_obj_t* scr) {
+  if (lv_screen_active() == scr) return;
+  lv_screen_load(scr);
+  if (blankScr) {
+    lv_obj_delete(blankScr);
+    blankScr = nullptr;
+  }
 }
 
 void showTiles(const tiles::Model& m) {
+  if (!S.scr) {
+    dropScreen(G);
+    createMain();
+  }
   lv_obj_set_style_bg_color(S.scr, c(m.frame), 0);
   // Довга назва тривоги («Дронова небезпека · з 10:02») — дрібнішим шрифтом, щоб влізла поруч із годинником
   constexpr int TOP_W = 240 - 2 * M - 26 - 44 - 22;  // ширина мітки (до розкладки LVGL get_width ще 0)
@@ -459,36 +406,33 @@ void showTiles(const tiles::Model& m) {
     setText(S.msgTitle, m.msgTitle, m.msgTitleColor);
     setText(S.msgText, m.msgText, col::MUTED);
   }
-  if (lv_screen_active() != S.scr) lv_screen_load(S.scr);
+  loadScreen(S.scr);
 }
 
 void showMap(const outage::MapModel& m, tiles::Wifi wifi) {
+  if (!G.scr) {
+    dropScreen(S);
+    createMap();
+  }
   lv_obj_set_style_bg_color(G.scr, c(m.frame), 0);
   setText(G.title, m.title, col::TEXT);
   setText(G.clock, m.clock, col::TEXT);
   applyWifi(G.wifi, wifi, CARD_W - 4 - 10 - textWidth(m.clock, &inter_14_semi) - 6, 6);
-  setText(G.todayTitle, m.today.title, col::TEXT);
-  for (int h = 0; h < 24; h++) {
-    show(G.cells[h].box, m.today.cells);
-    if (m.today.cells) applyCell(G.cells[h], m.today.c[h]);
+  bool rows = m.kind == outage::MapKind::Rows;
+  for (int k = 0; k < outage::ROWS; k++) {
+    bool on = rows && k < m.count;
+    show(G.row[k], on);
+    show(G.rowNote[k], on && m.rows[k].tomorrow);
+    if (on) setText(G.row[k], m.rows[k].text, m.rows[k].light ? col::TEXT : col::ALERT_RED);
   }
-  show(G.todayNote, !m.today.cells);
-  setText(lv_obj_get_child(G.todayNote, 0), m.today.note, col::MUTED);
-  setText(G.tomorrowTitle, m.tomorrow.title, col::TEXT);
-  show(G.strip, m.tomorrow.cells);
-  for (int i = 0; i < 5; i++) show(G.stripLbl[i], m.tomorrow.cells);
-  if (m.tomorrow.cells)
-    for (int i = 0; i < 48; i++) {
-      bool light = i % 2 ? m.tomorrow.c[i / 2].second : m.tomorrow.c[i / 2].first;
-      lv_obj_set_style_bg_color(G.stripSeg[i], c(light ? col::CARD_LIGHT : col::CARD_OFF), 0);
-    }
-  show(G.tomorrowNote, !m.tomorrow.cells);
-  setText(lv_obj_get_child(G.tomorrowNote, 0), m.tomorrow.note, col::MUTED);
-  setText(G.updated, m.updated, m.updatedColor);
-  if (lv_screen_active() != G.scr) lv_screen_load(G.scr);
+  show(G.message, !rows);
+  if (m.kind == outage::MapKind::Emergency) setText(G.message, "Екстрені відключення", col::ALERT_RED);
+  else if (m.kind == outage::MapKind::NoData) setText(G.message, "Даних немає", col::MUTED);
+  loadScreen(G.scr);
 }
 
 void showSetup(const SetupView& v) {
+  if (!P.scr) createSetup();
   applyStep(P.st[0], v.wifi);
   applyStep(P.st[1], v.logger);
   applyStep(P.st[2], v.region);

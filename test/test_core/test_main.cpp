@@ -344,23 +344,38 @@ static void test_outage_parse() {
 static void test_outage_map() {
   outage::Schedule s;
   outage::parse(OUT_JSON, strlen(OUT_JSON), &s);
-  outage::MapModel m = outage::buildMap(&s, "47.1", kyiv(26, 21, 40), tiles::color::FRAME_CALM, 3 * 3600);
+  // 26.11, 21:40: 20:00–24:00 світло є; завтра не опубліковано — далі рядків немає
+  outage::MapModel m = outage::buildMap(&s, "47.1", kyiv(26, 21, 40), tiles::color::FRAME_CALM, 12 * 3600);
   TEST_ASSERT_EQUAL_STRING("Черга 47.1", m.title);
-  TEST_ASSERT_EQUAL_STRING("21:40", m.clock);
-  TEST_ASSERT_EQUAL_STRING("графік на 21:29", m.updated);
-  TEST_ASSERT_EQUAL_STRING("Сьогодні · чт 26 листопада", m.today.title);
-  TEST_ASSERT_TRUE(m.today.cells);
-  TEST_ASSERT_FALSE(m.today.c[6].first);   // 06:00–07:00 — світла немає
-  TEST_ASSERT_TRUE(m.today.c[5].second);
-  TEST_ASSERT_TRUE(m.today.c[21].now);
-  TEST_ASSERT_FALSE(m.tomorrow.cells);
-  TEST_ASSERT_EQUAL_STRING("ще не опубліковано", m.tomorrow.note);
-  // наступного дня «сьогодні» — це колишнє «завтра»
-  m = outage::buildMap(&s, "47.1", kyiv(27, 10, 0), tiles::color::FRAME_CALM, 3 * 3600);
-  TEST_ASSERT_FALSE(m.today.cells);
-  TEST_ASSERT_EQUAL_STRING("графік на 21:29 (давно)", m.updated);
-  m = outage::buildMap(nullptr, "3.2", kyiv(26, 12, 0), tiles::color::FRAME_CALM, 3600);
-  TEST_ASSERT_EQUAL_STRING("графік недоступний", m.updated);
+  TEST_ASSERT_EQUAL(outage::MapKind::Rows, m.kind);
+  TEST_ASSERT_EQUAL(1, m.count);
+  TEST_ASSERT_EQUAL_STRING("20:00–24:00", m.rows[0].text);
+  TEST_ASSERT_TRUE(m.rows[0].light);
+  // 07:15: поточне відключення 06:00–10:00, далі 10:00–15:00 є, 15:00–20:00 немає, 20:00–24:00 є
+  m = outage::buildMap(&s, "47.1", kyiv(26, 7, 15), tiles::color::FRAME_CALM, 48 * 3600);
+  TEST_ASSERT_EQUAL(4, m.count);
+  TEST_ASSERT_EQUAL_STRING("06:00–10:00", m.rows[0].text);
+  TEST_ASSERT_FALSE(m.rows[0].light);
+  TEST_ASSERT_EQUAL_STRING("10:00–15:00", m.rows[1].text);
+  TEST_ASSERT_TRUE(m.rows[1].light);
+  TEST_ASSERT_EQUAL_STRING("15:00–20:00", m.rows[2].text);
+  TEST_ASSERT_EQUAL_STRING("20:00–24:00", m.rows[3].text);
+  // через північ, коли завтра відоме: 20:00–… триває до 04:00 наступної доби
+  outage::Schedule s2 = s;
+  s2.days[1].status = outage::Status::Applies;
+  memset(s2.days[1].off, 0, sizeof s2.days[1].off);
+  for (int i = 8; i < 16; i++) s2.days[1].off[i] = 1;  // 04:00–08:00 немає
+  m = outage::buildMap(&s2, "47.1", kyiv(26, 21, 0), tiles::color::FRAME_CALM, 12 * 3600);
+  TEST_ASSERT_EQUAL_STRING("20:00–04:00", m.rows[0].text);
+  TEST_ASSERT_EQUAL_STRING("04:00–08:00", m.rows[1].text);
+  TEST_ASSERT_TRUE(m.rows[1].tomorrow);
+  TEST_ASSERT_EQUAL_STRING("08:00–24:00", m.rows[2].text);
+  // екстрені; немає даних (немає графіка, застарілий, наступний день без графіка)
+  s2.days[0].status = outage::Status::Emergency;
+  TEST_ASSERT_EQUAL(outage::MapKind::Emergency, outage::buildMap(&s2, "47.1", kyiv(26, 12, 0), 0, 12 * 3600).kind);
+  TEST_ASSERT_EQUAL(outage::MapKind::NoData, outage::buildMap(nullptr, "3.2", kyiv(26, 12, 0), 0, 12 * 3600).kind);
+  TEST_ASSERT_EQUAL(outage::MapKind::NoData, outage::buildMap(&s, "47.1", kyiv(27, 10, 0), 0, 48 * 3600).kind);
+  TEST_ASSERT_EQUAL(outage::MapKind::NoData, outage::buildMap(&s, "47.1", kyiv(28, 10, 0), 0, 12 * 3600).kind);
 }
 
 static void test_wifi_state() {

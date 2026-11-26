@@ -104,6 +104,9 @@ a{color:var(--muted)}
       <p></p>
       <fieldset id="houses"></fieldset>
       <p id="kyivMsg" class="mute"></p>
+      <p></p>
+      <label class="f">Або введіть чергу вручну (як у застосунку Yasno / ДТЕК)<input type="text" id="kyivGroup" placeholder="наприклад, 47.1" inputmode="text" autocomplete="off"></label>
+      <p class="mute">Тоді табло не перевірятиме щодня, чи не змінилась черга за адресою.</p>
     </div>
     <div id="zt" class="hide">
       <label class="f">Черга й підчерга<select id="ztGroup"></select></label>
@@ -385,11 +388,15 @@ $('outGo').onclick = async () => {
     else if (p === 'ztoe') await post('/api/outage', {provider: p, group: $('ztGroup').value});
     else {
       const o = st.outage || {};
-      if (kyivPick && kyivPick.group) {
+      const manualGroup = $('kyivGroup').value.trim().replace(',', '.');  // на телефоні в цифровій клавіатурі часто лише кома
+      if (manualGroup && !(kyivPick && kyivPick.group)) {
+        if (!/^\d{1,2}\.\d$/.test(manualGroup)) { $('kyivMsg').innerHTML = '<span class="err">Черга — як 47.1</span>'; return; }
+        await post('/api/outage', {provider: p, group: manualGroup, address: 'черга вручну'});
+      } else if (kyivPick && kyivPick.group) {
         await post('/api/outage', {provider: p, group: kyivPick.group, street: kyivPick.street, house: kyivPick.house,
                                    address: kyivPick.streetName + ', ' + kyivPick.houseName});
       } else if (!(o.provider === p && o.group)) {
-        $('kyivMsg').innerHTML = '<span class="err">Знайдіть вулицю й будинок — табло визначить чергу.</span>';
+        $('kyivMsg').innerHTML = '<span class="err">Знайдіть вулицю й будинок або введіть чергу вручну.</span>';
         return;
       }
     }

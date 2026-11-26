@@ -5,6 +5,7 @@
 #include <StreamString.h>
 #include <WebServer.h>
 #include <esp_attr.h>
+#include <esp_heap_caps.h>
 #include <esp_task_wdt.h>
 #include <lvgl.h>
 
@@ -62,7 +63,12 @@ void handleSerial() {
     line[n] = 0;
     n = 0;
     if (!strcmp(line, "log")) evlog::dump(Serial);
-    else if (!strcmp(line, "setup")) enterSetupAfterRestart();
+    else if (!strcmp(line, "setup")) {
+      setupFlag = SETUP_MAGIC;
+      evlog::add("Команда setup — перезапуск у режим налаштування");
+      delay(200);
+      ESP.restart();
+    }
     else if (*line) Serial.println("Команди: log, setup");
   }
 }
@@ -194,5 +200,15 @@ void loop() {
     }
   }
   if (panelOk) lv_timer_handler();
+  // Пам'ять у журнал: через 1 хв після старту й далі щогодини
+  static uint32_t lastMem = 0;
+  if ((lastMem == 0 && millis() > 60000UL) || (lastMem && millis() - lastMem > 3600000UL)) {
+    lastMem = millis();
+    unsigned used = 0, total = 0;
+    if (panelOk) ui::memoryStats(&used, &total);
+    evlog::add("Пам'ять: вільно %u КБ, блок %u КБ, мін %u КБ; LVGL %u/%u КБ", (unsigned)(ESP.getFreeHeap() / 1024),
+               (unsigned)(heap_caps_get_largest_free_block(MALLOC_CAP_8BIT) / 1024),
+               (unsigned)(ESP.getMinFreeHeap() / 1024), used, total);
+  }
   delay(5);
 }
