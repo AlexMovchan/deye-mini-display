@@ -134,7 +134,7 @@ void createTile(TileUi& u, int x, int y) {
 void applyTile(TileUi& u, const tiles::Tile& t) {
   lv_obj_set_style_bg_color(u.box, c(t.bg), 0);
   // Кожна плитка з обвідкою: на чорному тлі межі плиток видно й під кутом
-  lv_obj_set_style_border_width(u.box, t.border ? 2 : 1, 0);
+  lv_obj_set_style_border_width(u.box, 2, 0);  // однакова товщина — вміст плиток не зсувається
   lv_obj_set_style_border_color(u.box, c(t.border ? t.border : t.bg == col::CARD_LIGHT ? col::CARD_LIGHT : col::CARD_EDGE), 0);
   setText(u.title, t.title, t.titleColor);
   show(u.boltBg, t.icon == tiles::Icon::BoltOn);
@@ -171,7 +171,7 @@ void createMain() {
   lv_obj_remove_flag(S.scr, LV_OBJ_FLAG_SCROLLABLE);
   lv_obj_set_style_bg_color(S.scr, c(col::FRAME_CALM), 0);
   S.topBox = box(S.scr, M, M, 240 - 2 * M, TOP_H, col::CARD, 8);
-  lv_obj_set_style_border_width(S.topBox, 1, 0);
+  lv_obj_set_style_border_width(S.topBox, 2, 0);
   lv_obj_set_style_border_color(S.topBox, c(col::CARD_EDGE), 0);
   S.top = label(S.topBox, &inter_14_semi, col::MUTED);
   lv_obj_set_width(S.top, 240 - 2 * M - 26 - 44);
