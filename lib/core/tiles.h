@@ -37,7 +37,12 @@ enum class AlertState : uint8_t {
   NoData,  // запит не вдався / давно немає відповіді
 };
 
+// Значок біля годинника: є зв'язок / слабкий сигнал (< −75 дБм) / немає (Wi-Fi відпав або дані не ходять)
+enum class Wifi : uint8_t { Ok, Weak, Off };
+Wifi wifiState(bool online, bool dataFlowing, int rssi);
+
 struct Input {
+  Wifi wifi = Wifi::Ok;
   int64_t now = 0;            // unix; 0 — годинника ще немає
   LoggerState logger = LoggerState::Searching;
   int staleMinutes = 0;       // для Stale
@@ -76,6 +81,7 @@ struct Model {
   char top[64] = "";
   Rgb topColor = color::MUTED;
   char clock[6] = "";          // "HH:MM" або ""
+  Wifi wifi = Wifi::Ok;
   Tile light, soc, load, batt;  // зліва направо, згори вниз
   bool message = false;        // замість плиток — повідомлення (немає логера, не той інвертор)
   char msgTitle[64] = "";

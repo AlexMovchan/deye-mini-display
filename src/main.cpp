@@ -13,6 +13,7 @@
 #include "event_log.h"
 #include "kyiv_time.h"
 #include "monitor.h"
+#include "outage.h"
 #include "net.h"
 #include "portal.h"
 #include "settings.h"
@@ -26,6 +27,9 @@ RTC_NOINIT_ATTR uint32_t setupFlag;
 
 bool setupMode = false;
 bool panelOk = false;
+bool hasOutage = false;   // налаштовано графік відключень — є екран 2
+bool mapShown = false;
+uint32_t mapOpenedMs = 0;
 WebServer logServer(LOG_HTTP_PORT);
 
 void enterSetupAfterRestart() {
@@ -60,6 +64,33 @@ void handleSerial() {
     if (!strcmp(line, "log")) evlog::dump(Serial);
     else if (!strcmp(line, "setup")) enterSetupAfterRestart();
     else if (*line) Serial.println("Команди: log, setup");
+  }
+}
+
+// Свайп справа наліво — екран 2 (графік), зліва направо — назад. Дотик на екрані 2 відкладає авто-повернення.
+void handleTouch() {
+  static uint32_t lastRead = 0;
+  static bool down = false;
+  static int x0 = 0, x1 = 0;
+  if (!hasOutage || millis() - lastRead < 20) return;
+  lastRead = millis();
+  board::Touch t;
+  if (!board::readTouch(&t)) return;
+  if (t.pressed) {
+    if (!down) x0 = t.x;
+    x1 = t.x;
+    down = true;
+    if (mapShown) mapOpenedMs = millis();
+    return;
+  }
+  if (!down) return;
+  down = false;
+  int dx = x1 - x0;
+  if (dx <= -SWIPE_MIN_PX && !mapShown) {
+    mapShown = true;
+    mapOpenedMs = millis();
+  } else if (dx >= SWIPE_MIN_PX && mapShown) {
+    mapShown = false;
   }
 }
 
@@ -116,6 +147,7 @@ void setup() {
   } else {
     evlog::add("Логер %lu, тривоги: %s", (unsigned long)cfg.loggerSn,
                cfg.regionId.length() ? cfg.regionName.c_str() : "вимкнено");
+    hasOutage = cfg.outProvider.length() > 0;
     net::beginStation(cfg.ssid, cfg.pass);
     monitor::begin(cfg);
     startLogServer();
@@ -136,9 +168,23 @@ void loop() {
   } else {
     net::loop();
     logServer.handleClient();
-    if (panelOk && millis() - lastUi > 1000) {
+    handleTouch();
+    if (mapShown && millis() - mapOpenedMs > MAP_RETURN_SECONDS * 1000UL) mapShown = false;
+    static bool wasMap = false;
+    if (panelOk && (millis() - lastUi > 1000 || wasMap != mapShown)) {
       lastUi = millis();
-      ui::showTiles(tiles::build(monitor::snapshot()));
+      wasMap = mapShown;
+      tiles::Model m = tiles::build(monitor::snapshot());
+      if (mapShown) {
+        static outage::Schedule sch;  // ~200 Б, не на стеку циклу
+        String group;
+        monitor::outageSnapshot(&sch, &group);
+        ui::showMap(outage::buildMap(sch.valid ? &sch : nullptr, group.c_str(), net::timeValid() ? net::now() : 0,
+                                     m.frame, OUTAGE_STALE_HOURS * 3600),
+                    m.wifi);
+      } else {
+        ui::showTiles(m);
+      }
       static int lastBl = -1;
       int bl = brightness();
       if (bl != lastBl) {

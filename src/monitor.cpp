@@ -12,6 +12,7 @@
 #include "logger.h"
 #include "net.h"
 #include "siren.h"
+#include "yasno_address.h"
 
 namespace monitor {
 
@@ -35,6 +36,8 @@ struct Shared {
   uint32_t alertOkMs = 0;
   bool alertFailed = false;
   siren::Alert alert;
+  outage::Schedule sched;  // останній вдалий графік
+  String outGroup;
 } S;
 
 struct Lock {
@@ -140,6 +143,66 @@ void poll() {
   S.hoursLeft = tracker.hoursLeft(r.reading);
 }
 
+// ── Графік відключень ──
+uint32_t lastOutage = 0, outageInterval = 0, lastRecheck = 0;
+
+void pollOutage() {
+  lastOutage = millis();
+  String group;
+  {
+    Lock l;
+    group = S.outGroup;
+  }
+  String url = String(OUTAGE_URL_PREFIX) + cfg.outProvider + "/" + group + ".json";
+  static char body[2048];
+  size_t len = 0;
+  https::Request req;
+  req.url = url.c_str();
+  req.timeoutMs = SIREN_TIMEOUT_MS;
+  https::Response res = https::get(req, [&](Stream& s) {
+    len = s.readBytes(body, sizeof body - 1);
+    body[len] = 0;
+    return len > 0;
+  });
+  outage::Schedule sch;
+  bool ok = res.status == 200 && res.bodyOk && outage::parse(body, len, &sch);
+  static bool failed = false;
+  if (!ok) {
+    if (!failed) evlog::add("Графік: не отримано (%d), повтор за %d хв", res.status, OUTAGE_RETRY_MINUTES);
+    failed = true;
+    outageInterval = OUTAGE_RETRY_MINUTES * 60000UL;
+    return;
+  }
+  if (failed) evlog::add("Графік: знову отримано");
+  failed = false;
+  outageInterval = OUTAGE_POLL_MINUTES * 60000UL;
+  netOk();
+  Lock l;
+  S.sched = sch;
+}
+
+// Київ: раз на добу — чи не перенесли будинок в іншу чергу
+void recheckKyiv() {
+  lastRecheck = millis();
+  String err;
+  String g = yasno::group(cfg.yStreet, cfg.yHouse, &err);
+  if (!g.length()) {
+    evlog::add("Графік: перевірка черги не вдалася (%s)", err.c_str());
+    return;
+  }
+  bool changed;
+  {
+    Lock l;
+    changed = g != S.outGroup;
+    if (changed) evlog::add("Графік: черга змінилась %s → %s", S.outGroup.c_str(), g.c_str());
+    S.outGroup = g;
+  }
+  if (changed) {
+    settings::saveOutGroup(g);
+    lastOutage = 0;  // одразу забрати графік нової черги
+  }
+}
+
 // ── Тривоги ──
 uint32_t lastSiren = 0;
 
@@ -199,9 +262,15 @@ void task(void*) {
     }
     // Тривоги — лише з регіоном і після синхронізації часу; і лише в :20–:27 кожного півхвилинного циклу,
     // щоб навіть зависле з'єднання (до SIREN_TIMEOUT_MS) не налізло на час логера
-    if (cfg.regionId.length() && net::timeValid() && phase >= LOGGER_POLL_OFFSET + 5 && phase < LOGGER_POLL_OFFSET + 12 &&
-        (lastSiren == 0 || millis() - lastSiren >= SIREN_POLL_SECONDS * 1000UL))
+    // Одне HTTPS-з'єднання за прохід (пам'яті без PSRAM на два немає): тривоги → графік → перевірка черги
+    bool httpsWindow = net::timeValid() && phase >= LOGGER_POLL_OFFSET + 5 && phase < LOGGER_POLL_OFFSET + 12;
+    if (httpsWindow && cfg.regionId.length() && (lastSiren == 0 || millis() - lastSiren >= SIREN_POLL_SECONDS * 1000UL))
       pollSiren();
+    else if (httpsWindow && cfg.outProvider.length() && (lastOutage == 0 || millis() - lastOutage >= outageInterval))
+      pollOutage();
+    else if (httpsWindow && cfg.outProvider == "yasno-kyiv" && cfg.yHouse && millis() > 120000UL &&
+             (lastRecheck == 0 || millis() - lastRecheck >= KYIV_RECHECK_HOURS * 3600000UL))
+      recheckKyiv();
     delay(200);
   }
 }
@@ -210,6 +279,8 @@ void task(void*) {
 void begin(const settings::Config& c) {
   cfg = c;
   mtx = xSemaphoreCreateMutex();
+  S.outGroup = cfg.outGroup;
+  outageInterval = OUTAGE_POLL_MINUTES * 60000UL;
   loggerIp = IPAddress(cfg.loggerIp);
   // Збережена адреса — спершу пробуємо її (пошук почнеться, лише якщо логер на ній не відповість)
   needSearch = cfg.loggerIp == 0;
@@ -234,6 +305,9 @@ tiles::Input snapshot() {
     in.logger = tiles::LoggerState::NoData;
   }
   in.reading = S.reading;
+  // Значок Wi-Fi: «дані не ходять», якщо понад 2 хв жодного вдалого обміну (на старті — 2 хв на підключення)
+  bool flowing = netOkMs ? millis() - netOkMs < 120000UL : millis() < 120000UL;
+  in.wifi = tiles::wifiState(net::online(), flowing, net::rssi());
   in.grid = S.grid;
   in.gridSince = S.gridSince;
   in.hoursLeft = S.hoursLeft;
@@ -248,6 +322,14 @@ tiles::Input snapshot() {
     in.alertState = tiles::AlertState::Off;  // ще не питали — не лякаємо «немає даних»
   }
   return in;
+}
+
+bool outageSnapshot(outage::Schedule* out, String* group) {
+  if (!cfg.outProvider.length()) return false;
+  Lock l;
+  *out = S.sched;
+  *group = S.outGroup;
+  return true;
 }
 
 }  // namespace monitor

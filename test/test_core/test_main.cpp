@@ -7,6 +7,7 @@
 #include "discovery.h"
 #include "inverter.h"
 #include "kyiv_time.h"
+#include "outage.h"
 #include "siren.h"
 #include "solarman.h"
 #include "tiles.h"
@@ -314,6 +315,61 @@ static void test_formats() {
   TEST_ASSERT_EQUAL_HEX32(tiles::color::SOC_GREEN, tiles::socColor(75));
 }
 
+// ───────────────────────── Графік відключень ─────────────────────────
+static const char* OUT_JSON =
+    "{\"v\":1,\"provider\":\"yasno-kyiv\",\"name\":\"Київ\",\"group\":\"47.1\",\"fetched\":\"2026-11-26T19:29:12Z\","
+    "\"days\":[{\"date\":\"2026-11-26\",\"status\":\"applies\",\"off\":\"000000000000111111110000000000111111111100000000\"},"
+    "{\"date\":\"2026-11-27\",\"status\":\"waiting\",\"off\":\"\"}]}";
+
+static void test_outage_parse() {
+  outage::Schedule s;
+  TEST_ASSERT_TRUE(outage::parse(OUT_JSON, strlen(OUT_JSON), &s));
+  TEST_ASSERT_EQUAL_STRING("47.1", s.group);
+  TEST_ASSERT_EQUAL(2, s.dayCount);
+  TEST_ASSERT_EQUAL(outage::Status::Applies, s.days[0].status);
+  TEST_ASSERT_EQUAL(1, s.days[0].off[12]);   // 06:00
+  TEST_ASSERT_EQUAL(0, s.days[0].off[11]);
+  TEST_ASSERT_EQUAL(outage::Status::Waiting, s.days[1].status);
+  TEST_ASSERT_EQUAL_INT64(utc(2026, 11, 26, 19, 29, 12), s.fetched);
+  const char* bad[] = {"{\"v\":2,\"days\":[]}", "{\"v\":1,\"days\":[{\"date\":\"x\",\"status\":\"applies\",\"off\":\"0\"}]}",
+                       "{\"v\":1,\"days\":[{\"date\":\"2026-11-26\",\"status\":\"applies\",\"off\":\"01\"}]}", "<html>"};
+  for (const char* b : bad) TEST_ASSERT_FALSE(outage::parse(b, strlen(b), &s));
+  TEST_ASSERT_TRUE(outage::validGroup("47.1"));
+  TEST_ASSERT_TRUE(outage::validGroup("3.2"));
+  TEST_ASSERT_FALSE(outage::validGroup("47"));
+  TEST_ASSERT_FALSE(outage::validGroup("4.12"));
+  TEST_ASSERT_FALSE(outage::validGroup("a.1"));
+}
+
+static void test_outage_map() {
+  outage::Schedule s;
+  outage::parse(OUT_JSON, strlen(OUT_JSON), &s);
+  outage::MapModel m = outage::buildMap(&s, "47.1", kyiv(26, 21, 40), tiles::color::FRAME_CALM, 3 * 3600);
+  TEST_ASSERT_EQUAL_STRING("Черга 47.1", m.title);
+  TEST_ASSERT_EQUAL_STRING("21:40", m.clock);
+  TEST_ASSERT_EQUAL_STRING("графік на 21:29", m.updated);
+  TEST_ASSERT_EQUAL_STRING("Сьогодні · чт 26 листопада", m.today.title);
+  TEST_ASSERT_TRUE(m.today.cells);
+  TEST_ASSERT_FALSE(m.today.c[6].first);   // 06:00–07:00 — світла немає
+  TEST_ASSERT_TRUE(m.today.c[5].second);
+  TEST_ASSERT_TRUE(m.today.c[21].now);
+  TEST_ASSERT_FALSE(m.tomorrow.cells);
+  TEST_ASSERT_EQUAL_STRING("ще не опубліковано", m.tomorrow.note);
+  // наступного дня «сьогодні» — це колишнє «завтра»
+  m = outage::buildMap(&s, "47.1", kyiv(27, 10, 0), tiles::color::FRAME_CALM, 3 * 3600);
+  TEST_ASSERT_FALSE(m.today.cells);
+  TEST_ASSERT_EQUAL_STRING("графік на 21:29 (давно)", m.updated);
+  m = outage::buildMap(nullptr, "3.2", kyiv(26, 12, 0), tiles::color::FRAME_CALM, 3600);
+  TEST_ASSERT_EQUAL_STRING("графік недоступний", m.updated);
+}
+
+static void test_wifi_state() {
+  TEST_ASSERT_EQUAL(tiles::Wifi::Ok, tiles::wifiState(true, true, -60));
+  TEST_ASSERT_EQUAL(tiles::Wifi::Weak, tiles::wifiState(true, true, -80));
+  TEST_ASSERT_EQUAL(tiles::Wifi::Off, tiles::wifiState(true, false, -60));
+  TEST_ASSERT_EQUAL(tiles::Wifi::Off, tiles::wifiState(false, true, -60));
+}
+
 int main() {
   UNITY_BEGIN();
   RUN_TEST(test_v5_requests_match_pysolarmanv5);
@@ -332,5 +388,8 @@ int main() {
   RUN_TEST(test_tiles_no_region_and_stale);
   RUN_TEST(test_tiles_messages);
   RUN_TEST(test_formats);
+  RUN_TEST(test_outage_parse);
+  RUN_TEST(test_outage_map);
+  RUN_TEST(test_wifi_state);
   return UNITY_END();
 }

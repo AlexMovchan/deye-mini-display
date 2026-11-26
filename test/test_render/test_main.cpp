@@ -9,6 +9,7 @@
 #include <string>
 
 #include "kyiv_time.h"
+#include "outage.h"
 #include "tiles.h"
 #include "ui.h"
 
@@ -91,6 +92,7 @@ static void test_render_tiles() {
 
   in = calm();
   in.alertState = tiles::AlertState::Off;
+  in.wifi = tiles::Wifi::Off;
   in.logger = tiles::LoggerState::Stale;
   in.staleMinutes = 4;
   ui::showTiles(tiles::build(in));
@@ -113,6 +115,7 @@ static void test_render_setup() {
   strcpy(v.wifi.text, "Wi-Fi: чекаю телефон");
   strcpy(v.logger.text, "Логер");
   strcpy(v.region.text, "Тривоги (необов’язково)");
+  strcpy(v.outage.text, "Графік відключень (необов’язково)");
   strcpy(v.note, "Скинути налаштування — утримуйте BOOT 5 с");
   ui::showSetup(v);
   save("setup_start");
@@ -131,6 +134,20 @@ static void test_render_setup() {
   save("setup_fail");
 }
 
+static void test_render_map() {
+  const char* j =
+      "{\"v\":1,\"group\":\"47.1\",\"fetched\":\"2026-11-26T19:29:12Z\",\"days\":["
+      "{\"date\":\"2026-11-26\",\"status\":\"applies\",\"off\":\"000000000000111111110000000000111111111100000000\"},"
+      "{\"date\":\"2026-11-27\",\"status\":\"applies\",\"off\":\"111111110000000000111111110000000000111111110000\"}]}";
+  outage::Schedule s;
+  TEST_ASSERT_TRUE(outage::parse(j, strlen(j), &s));
+  ui::showMap(outage::buildMap(&s, "47.1", kyiv(26, 21, 40), tiles::color::FRAME_CALM, 3 * 3600), tiles::Wifi::Ok);
+  save("map_both");
+  s.days[1].status = outage::Status::Waiting;
+  ui::showMap(outage::buildMap(&s, "47.1", kyiv(26, 15, 10), tiles::color::FRAME_RED, 3 * 3600), tiles::Wifi::Weak);
+  save("map_no_tomorrow");
+}
+
 int main() {
   lv_init();
   lv_tick_set_cb([]() -> uint32_t { return fakeTick; });
@@ -142,5 +159,6 @@ int main() {
   UNITY_BEGIN();
   RUN_TEST(test_render_tiles);
   RUN_TEST(test_render_setup);
+  RUN_TEST(test_render_map);
   return UNITY_END();
 }

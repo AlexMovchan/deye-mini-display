@@ -11,6 +11,11 @@ namespace tiles {
 
 static void put(char* dst, int n, const char* s) { snprintf(dst, n, "%s", s); }
 
+Wifi wifiState(bool online, bool dataFlowing, int rssi) {
+  if (!online || !dataFlowing) return Wifi::Off;
+  return rssi < -75 ? Wifi::Weak : Wifi::Ok;
+}
+
 Rgb socColor(int soc) { return soc >= 75 ? color::SOC_GREEN : soc >= 45 ? color::SOC_YELLOW : color::SOC_RED; }
 
 void formatHours(float hours, char* big, int bigLen, char* unit, int unitLen) {
@@ -65,6 +70,7 @@ static void message(Model& m, const char* title, Rgb titleColor, const char* tex
 Model build(const Input& in) {
   Model m;
   if (in.now > 0) hhmm(in.now, m.clock, sizeof m.clock);
+  m.wifi = in.wifi;
 
   // Рядок і рамка тривоги
   switch (in.alertState) {

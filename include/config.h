@@ -2,7 +2,7 @@
 // Константи прошивки. Тут НЕМАЄ і не може бути жодних даних користувача (Wi-Fi, серійник, адреси):
 // усе це вводиться на платі під час налаштування й лежить у NVS (src/settings.cpp).
 
-#define FW_VERSION "0.1.3"
+#define FW_VERSION "0.2.0"
 #define HOSTNAME "deye-mini"
 
 // ── Налаштування: точка доступу й кнопка ──
@@ -36,6 +36,13 @@
 #define SIREN_TIMEOUT_MS     4000             // короткий: зависле HTTPS не має з'їдати час логера
 #define SIREN_STALE_SECONDS  300              // без відповіді стільки → «Тривога: немає даних»
 #define HTTP_TIMEOUT_MS      8000
+
+// ── Графік відключень: файл черги з GitHub Pages (нормалізатор outages/, оновлюється о :07 і :37) ──
+#define OUTAGE_URL_PREFIX    "https://alexmovchan.github.io/deye-mini-display/outages/"
+#define OUTAGE_POLL_MINUTES  30
+#define OUTAGE_RETRY_MINUTES 5
+#define OUTAGE_STALE_HOURS   3                // графік старший → «графік на HH:MM (давно)»
+#define KYIV_RECHECK_HOURS   24               // Київ: перевірка черги за адресою (Yasno переносить будинки)
 #define HTTP_USER_AGENT      "deye-mini-display/" FW_VERSION " (+https://github.com/AlexMovchan/deye-mini-display)"
 
 // ── Час ──
@@ -47,6 +54,8 @@
 #define NIGHT_BRIGHTNESS     30               // % з 00:00 до 07:00
 #define NIGHT_START_HOUR     0
 #define NIGHT_END_HOUR       7
+#define SWIPE_MIN_PX         60               // свайп: мінімальний зсув пальця по горизонталі
+#define MAP_RETURN_SECONDS   60               // екран 2 (графік) сам повертається на основний
 
 // ── Журнал ──
 #define EVENT_LOG_SIZE       50

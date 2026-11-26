@@ -11,8 +11,10 @@
 #include "inverter.h"
 #include "logger.h"
 #include "net.h"
+#include "outage.h"
 #include "siren.h"
 #include "web_assets.h"
+#include "yasno_address.h"
 
 namespace portal {
 
@@ -154,6 +156,10 @@ void handleState() {
   JsonObject r = d["region"].to<JsonObject>();
   r["id"] = cfg.regionId;
   r["name"] = cfg.regionName;
+  JsonObject o = d["outage"].to<JsonObject>();
+  o["provider"] = cfg.outProvider;
+  o["group"] = cfg.outGroup;
+  o["address"] = cfg.outAddress;
   sendJson(d);
 }
 
@@ -213,6 +219,72 @@ void handleRegion() {
   }
   cfg.regionId = id;
   cfg.regionName = id.length() ? name : "";
+  ok();
+}
+
+// ── Графік відключень ──
+// Пошук адреси в Києві робить табло (телефон у мережі Deye-Setup без інтернету): вулиці → будинки → черга.
+void sendItems(const std::vector<yasno::Item>& items, const String& error) {
+  JsonDocument d;
+  JsonArray a = d["items"].to<JsonArray>();
+  for (auto& it : items) {
+    JsonObject o = a.add<JsonObject>();
+    o["id"] = it.id;
+    o["name"] = it.value;
+  }
+  if (error.length()) d["error"] = error;
+  sendJson(d);
+}
+
+bool needInternet() {
+  if (wifiState == WifiState::Ok) return true;
+  server.send(409, "text/plain", "wifi");
+  return false;
+}
+
+void handleStreets() {
+  if (!needInternet()) return;
+  String err;
+  auto items = yasno::streets(server.arg("q"), 20, &err);
+  sendItems(items, err);
+}
+
+void handleHouses() {
+  if (!needInternet()) return;
+  String err;
+  auto items = yasno::houses(strtoul(server.arg("street").c_str(), nullptr, 10), server.arg("q"), 40, &err);
+  sendItems(items, err);
+}
+
+void handleGroup() {
+  if (!needInternet()) return;
+  String err;
+  String g = yasno::group(strtoul(server.arg("street").c_str(), nullptr, 10),
+                          strtoul(server.arg("house").c_str(), nullptr, 10), &err);
+  JsonDocument d;
+  d["group"] = g;
+  if (err.length()) d["error"] = err;
+  sendJson(d);
+}
+
+void handleOutage() {
+  String prov = server.arg("provider"), group = server.arg("group");
+  if (!prov.length()) {
+    cfg.outProvider = cfg.outGroup = cfg.outAddress = "";
+    cfg.yStreet = cfg.yHouse = 0;
+    ok();
+    return;
+  }
+  if ((prov != "yasno-kyiv" && prov != "ztoe") || !outage::validGroup(group.c_str()) ||
+      server.arg("address").length() > 120) {
+    server.send(400, "text/plain", "bad");
+    return;
+  }
+  cfg.outProvider = prov;
+  cfg.outGroup = group;
+  cfg.yStreet = prov == "yasno-kyiv" ? strtoul(server.arg("street").c_str(), nullptr, 10) : 0;
+  cfg.yHouse = prov == "yasno-kyiv" ? strtoul(server.arg("house").c_str(), nullptr, 10) : 0;
+  cfg.outAddress = prov == "yasno-kyiv" ? server.arg("address") : "";
   ok();
 }
 
@@ -278,6 +350,10 @@ void begin(const settings::Config& current) {
   server.on("/api/wifi", HTTP_POST, handleWifi);
   server.on("/api/logger", HTTP_POST, handleLogger);
   server.on("/api/region", HTTP_POST, handleRegion);
+  server.on("/api/yasno/streets", HTTP_GET, handleStreets);
+  server.on("/api/yasno/houses", HTTP_GET, handleHouses);
+  server.on("/api/yasno/group", HTTP_GET, handleGroup);
+  server.on("/api/outage", HTTP_POST, handleOutage);
   server.on("/api/save", HTTP_POST, handleSave);
   server.on("/api/reset", HTTP_POST, handleReset);
   server.onNotFound(redirect);
@@ -369,6 +445,13 @@ ui::SetupView view() {
   } else {
     v.region.state = logState == LogState::Found ? ui::Step::Active : ui::Step::Pending;
     snprintf(v.region.text, sizeof v.region.text, "Тривоги (необов’язково)");
+  }
+  if (cfg.outProvider.length()) {
+    v.outage.state = ui::Step::Done;
+    snprintf(v.outage.text, sizeof v.outage.text, "Графік: черга %s", cfg.outGroup.c_str());
+  } else {
+    v.outage.state = cfg.regionId.length() ? ui::Step::Active : ui::Step::Pending;
+    snprintf(v.outage.text, sizeof v.outage.text, "Графік (необов’язково)");
   }
   if (restartAt) snprintf(v.note, sizeof v.note, "Збережено, перезапускаюсь…");
   else if (logState == LogState::NotFound)
