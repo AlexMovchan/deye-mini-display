@@ -1,0 +1,5 @@
+.pio/
+.vscode/
+tools/check_board.log
+*.ppm
+__pycache__/

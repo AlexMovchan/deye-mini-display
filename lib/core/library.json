@@ -1,0 +1,10 @@
+{
+  "name": "core",
+  "version": "0.1.0",
+  "description": "Чиста логіка без Arduino: кадр Solarman V5, регістри Deye, тривоги siren.pp.ua, пошук логера, модель екрана",
+  "frameworks": "*",
+  "platforms": "*",
+  "dependencies": [
+    { "owner": "bblanchon", "name": "ArduinoJson", "version": "7.4.3" }
+  ]
+}

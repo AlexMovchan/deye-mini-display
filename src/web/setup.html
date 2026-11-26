@@ -1,0 +1,289 @@
+<!doctype html>
+<html lang="uk">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Табло Deye · налаштування</title>
+<style>
+:root{--bg:#15171B;--card:#1B1D22;--line:#2A2D33;--border:#3A3E46;--text:#E6E8EB;--muted:#AEB4BD;--dim:#868C96;--yellow:#F5C518;--green:#4CC38A;--warn:#FF8A65;--field:#0B0C0F}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:16px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+main{max-width:460px;margin:0 auto;padding:24px 18px 40px;display:flex;flex-direction:column;gap:18px}
+.kicker{font-size:13px;font-weight:600;color:var(--muted)}
+h1{margin:2px 0 0;font-size:26px}
+.lead{margin:4px 0 0;font-size:14px;color:var(--muted)}
+.steps{display:flex;gap:6px}.steps i{flex:1;height:4px;border-radius:2px;background:var(--border)}
+.steps i.on{background:var(--yellow)}.steps i.done{background:var(--green)}
+fieldset{margin:0;padding:0;border:0;display:flex;flex-direction:column;gap:8px}
+legend{margin-bottom:8px;font-size:13px;font-weight:600;color:var(--muted)}
+.opt{display:flex;align-items:center;gap:12px;min-height:52px;padding:8px 14px;border-radius:12px;background:var(--card);border:1px solid var(--line);font-weight:500;cursor:pointer}
+.opt:has(input:checked){border:2px solid var(--yellow);font-weight:600}
+.opt input{width:18px;height:18px;accent-color:var(--yellow);flex:none}
+.opt small{display:block;font-size:12px;font-weight:500;color:var(--muted)}
+.opt .r{margin-left:auto;font-size:13px;color:var(--muted)}
+label.f{display:flex;flex-direction:column;gap:8px;font-size:13px;font-weight:600;color:var(--muted)}
+input[type=text],input[type=password],input[type=search],select{height:52px;padding:0 14px;border-radius:12px;border:1px solid var(--border);background:var(--field);color:var(--text);font:inherit;font-size:16px;width:100%}
+button{height:54px;border:0;border-radius:14px;background:var(--yellow);color:#15171B;font:inherit;font-size:17px;font-weight:700;cursor:pointer;width:100%}
+button.ghost{height:48px;background:transparent;border:1px solid var(--border);color:var(--text);font-size:15px;font-weight:600}
+button:disabled{opacity:.5;cursor:default}
+.box{padding:14px;border-radius:12px;background:var(--card);border:1px solid var(--line);display:flex;flex-direction:column;gap:8px;font-size:15px}
+.ok{color:var(--green)}.err{color:var(--warn)}.mute{color:var(--muted);font-size:13px}
+.bar{height:8px;border-radius:4px;background:var(--field);overflow:hidden}.bar div{height:100%;background:var(--text);width:0}
+.row{display:flex;justify-content:space-between;gap:12px;padding:10px 0;border-bottom:1px solid var(--line)}.row:last-child{border:0}
+.row span:first-child{color:var(--muted)}
+.hide{display:none!important}
+a{color:var(--muted)}
+</style>
+</head>
+<body>
+<main>
+  <div>
+    <div class="kicker" id="kicker">Табло Deye · крок 1 з 3</div>
+    <h1 id="title">Wi-Fi вдома</h1>
+    <p class="lead" id="lead"></p>
+  </div>
+  <div class="steps"><i id="s1"></i><i id="s2"></i><i id="s3"></i></div>
+
+  <!-- 1. Wi-Fi -->
+  <section id="p1">
+    <fieldset id="nets"><legend>Знайдені мережі <span id="scanning" class="mute"></span></legend></fieldset>
+    <p><button type="button" class="ghost" id="rescan">Оновити список</button></p>
+    <label class="f">Інша мережа (назва)<input type="text" id="ssid" autocomplete="off" autocapitalize="off"></label>
+    <p></p>
+    <label class="f">Пароль Wi-Fi<input type="password" id="pass" autocomplete="off"></label>
+    <p id="wifiMsg" class="mute"></p>
+    <button type="button" id="wifiGo">Підключитися</button>
+  </section>
+
+  <!-- 2. Логер -->
+  <section id="p2" class="hide">
+    <label class="f">Серійний номер логера (SN, до 10 цифр)
+      <input type="text" id="sn" inputmode="numeric" autocomplete="off">
+      <span class="mute">На наклейці логера: «SN:» або «Serial No.». Можна лишити порожнім — тоді табло спробує знайти логер саме.</span>
+    </label>
+    <p></p>
+    <div class="box hide" id="logBox">
+      <div id="logLine"></div>
+      <div class="bar hide" id="logBar"><div id="logFill"></div></div>
+      <div class="mute" id="logNote"></div>
+    </div>
+    <p></p>
+    <button type="button" id="logGo">Шукати логер</button>
+    <p></p>
+    <button type="button" class="ghost hide" id="logNext">Далі</button>
+  </section>
+
+  <!-- 3. Тривоги -->
+  <section id="p3" class="hide">
+    <label class="f">Область<select id="state"></select></label>
+    <p></p>
+    <label class="f">Місто або громада<input type="search" id="q" placeholder="почніть вводити назву" autocomplete="off"></label>
+    <p></p>
+    <fieldset id="regs"></fieldset>
+    <p class="mute">Громада бачить і тривоги, оголошені на її район чи область. Запит — раз на хвилину (siren.pp.ua).</p>
+    <button type="button" id="regGo">Зберегти</button>
+    <p></p>
+    <button type="button" class="ghost" id="regNone">Без тривог</button>
+  </section>
+
+  <!-- 4. Готово -->
+  <section id="p4" class="hide">
+    <div class="box" style="gap:0;padding:4px 16px">
+      <div class="row"><span>Wi-Fi</span><span id="sumWifi"></span></div>
+      <div class="row"><span>Логер</span><span id="sumLog"></span></div>
+      <div class="row"><span>Тривоги</span><span id="sumReg"></span></div>
+    </div>
+    <p></p>
+    <button type="button" id="save">Зберегти й запустити</button>
+    <p id="saveMsg" class="mute"></p>
+    <div class="box"><b>Змінити налаштування згодом</b><span class="mute">Утримуйте кнопку BOOT на табло 5 секунд — знову з’явиться мережа Deye-Setup.</span></div>
+  </section>
+
+  <p class="hide" id="backP"><button type="button" class="ghost" id="back">← Назад</button></p>
+  <p class="mute" style="text-align:center"><a href="#" id="reset">Скинути все</a> · <span id="fw"></span></p>
+</main>
+<script>
+const $ = (id) => document.getElementById(id);
+let st = null, page = 1, regions = null, picked = null, manual = false;
+
+async function post(url, data) {
+  const body = new URLSearchParams(data || {});
+  const r = await fetch(url, {method: 'POST', body});
+  if (!r.ok) throw new Error(await r.text());
+}
+
+function show(p) {
+  page = p;
+  for (let i = 1; i <= 4; i++) $('p' + i).classList.toggle('hide', i !== p);
+  const titles = {1: 'Wi-Fi вдома', 2: 'Логер інвертора', 3: 'Тривоги', 4: 'Готово'};
+  const leads = {
+    1: 'Та сама мережа, де працює логер інвертора. Лише 2,4 ГГц.',
+    2: 'Wi-Fi-модуль Solarman, вставлений в інвертор. Табло лише читає дані — нічого в інверторі не змінює.',
+    3: 'Необов’язково. Без міста табло тривоги не показує.',
+    4: 'Перевірте й збережіть — табло перезапуститься й за кілька секунд покаже дані.',
+  };
+  $('title').textContent = titles[p];
+  $('lead').textContent = leads[p];
+  $('kicker').textContent = p < 4 ? `Табло Deye · крок ${p} з 3` : 'Табло Deye';
+  for (let i = 1; i <= 3; i++) $('s' + i).className = i < p ? 'done' : i === p ? 'on' : '';
+  $('backP').classList.toggle('hide', p === 1);
+  if (p === 3) loadRegions();
+  if (p === 4) summary();
+}
+
+// ── 1. Wi-Fi ──
+function renderNets() {
+  const box = $('nets');
+  const chosen = (document.querySelector('input[name=net]:checked') || {}).value || $('ssid').value || st.wifi.ssid;
+  box.querySelectorAll('.opt').forEach((e) => e.remove());
+  for (const n of st.networks) {
+    const l = document.createElement('label');
+    l.className = 'opt';
+    const q = n.rssi > -60 ? 'сильний' : n.rssi > -72 ? 'середній' : 'слабкий';
+    l.innerHTML = `<input type="radio" name="net"><span></span><span class="r">${q}${n.lock ? '' : ' · відкрита'}</span>`;
+    l.querySelector('input').value = n.ssid;
+    l.querySelector('span').textContent = n.ssid;
+    if (n.ssid === chosen) l.querySelector('input').checked = true;
+    l.querySelector('input').onchange = () => { $('ssid').value = ''; };
+    box.appendChild(l);
+  }
+  $('scanning').textContent = st.scanning ? '· шукаю…' : '';
+}
+
+$('back').onclick = () => { manual = true; show(page - 1); };
+$('rescan').onclick = () => post('/api/scan').catch(() => {});
+$('wifiGo').onclick = async () => {
+  manual = false;
+  const ssid = $('ssid').value.trim() || (document.querySelector('input[name=net]:checked') || {}).value;
+  if (!ssid) { $('wifiMsg').textContent = 'Виберіть мережу зі списку або введіть назву.'; return; }
+  $('wifiMsg').textContent = 'Під’єднуюсь… (телефон може на мить відключитися від Deye-Setup — це нормально)';
+  try { await post('/api/wifi', {ssid, pass: $('pass').value}); } catch (e) { $('wifiMsg').textContent = 'Помилка: ' + e.message; }
+};
+
+function renderWifi() {
+  const w = st.wifi, m = $('wifiMsg');
+  if (w.state === 'ok') { m.innerHTML = '<span class="ok">✓ Під’єднано до «' + esc(w.ssid) + '»</span>'; if (page === 1 && !manual) show(2); }
+  else if (w.state === 'fail') m.innerHTML = '<span class="err">Не вдалося під’єднатися. Перевірте пароль і що це мережа 2,4 ГГц.</span>';
+  else if (w.state === 'connecting') m.textContent = 'Під’єднуюсь до «' + w.ssid + '»…';
+}
+
+// ── 2. Логер ──
+$('logGo').onclick = async () => {
+  try { await post('/api/logger', {sn: $('sn').value.trim()}); }
+  catch (e) {
+    $('logBox').classList.remove('hide');
+    $('logLine').innerHTML = '<span class="err">' + (e.message === 'sn' ? 'Серійник — лише цифри, до 10 знаків.' : 'Спершу під’єднайте Wi-Fi.') + '</span>';
+  }
+};
+$('logNext').onclick = () => show(3);
+
+function renderLogger() {
+  const l = st.logger, box = $('logBox');
+  if (l.sn && !$('sn').value && document.activeElement !== $('sn')) $('sn').value = l.sn;
+  box.classList.toggle('hide', l.state === 'idle');
+  $('logBar').classList.toggle('hide', l.state !== 'searching' || !l.total);
+  $('logGo').disabled = l.state === 'searching';
+  $('logNext').classList.toggle('hide', !(l.state === 'found' || (l.state === 'idle' && l.known)));
+  let line = '', note = '';
+  if (l.state === 'searching') {
+    line = 'Шукаю логер…';
+    if (l.total) { $('logFill').style.width = (100 * l.done / l.total) + '%'; note = `перевірено ${l.done} з ${l.total} адрес — до хвилини`; }
+  } else if (l.state === 'found') {
+    line = '<span class="ok">✓ Логер знайдено: ' + esc(l.ip) + '</span>';
+    note = (l.soc >= 0 ? `Інвертор відповідає: заряд ${l.soc} %. ` : '') + 'Адресу збережено; якщо роутер видасть логеру іншу, табло знайде його знову саме.';
+  } else if (l.state === 'notfound') {
+    line = '<span class="err">Логер не знайдено</span>';
+    note = l.sn ? 'Перевірте серійник і що логер у тій самій мережі Wi-Fi, що й табло.' : 'Логер не відповів на автоматичний пошук — введіть серійник з наклейки й спробуйте ще раз.';
+  } else if (l.state === 'unsupported') {
+    line = '<span class="err">Інвертор не підтримується</span>';
+    note = `Тип: ${esc(l.typeName)} (${l.type}). Табло працює лише з однофазними гібридними Deye (SG0xLP1).`;
+  }
+  $('logLine').innerHTML = line;
+  $('logNote').textContent = note;
+}
+
+// ── 3. Тривоги ──
+async function loadRegions() {
+  if (regions) return;
+  const t = await (await fetch('/regions.txt')).text();
+  regions = {states: [], comm: []};
+  for (const line of t.split('\n')) {
+    const f = line.split('|');
+    if (f[0] === 'S') regions.states.push({id: f[1], name: f[2]});
+    else if (f[0] === 'C') regions.comm.push({id: f[1], name: f[2], state: f[3], district: f[4] || ''});
+  }
+  regions.states.sort((a, b) => a.name.localeCompare(b.name, 'uk'));
+  const sel = $('state');
+  sel.innerHTML = '<option value="">— виберіть область —</option>';
+  for (const s of regions.states) sel.add(new Option(s.name, s.id));
+  if (st.region.id) {
+    const c = regions.comm.find((x) => x.id === st.region.id);
+    sel.value = c ? c.state : st.region.id;
+    picked = {id: st.region.id, name: st.region.name};
+  }
+  renderRegs();
+}
+
+function renderRegs() {
+  const box = $('regs'), sid = $('state').value, q = $('q').value.trim().toLowerCase();
+  box.innerHTML = '';
+  if (!sid) return;
+  const s = regions.states.find((x) => x.id === sid);
+  const list = [{id: s.id, name: /область$/.test(s.name) ? 'Уся ' + s.name : s.name, sub: 'увесь регіон'}];
+  for (const c of regions.comm) if (c.state === sid && (!q || c.name.toLowerCase().includes(q))) list.push({id: c.id, name: c.name, sub: c.district});
+  for (const r of list.slice(0, 40)) {
+    const l = document.createElement('label');
+    l.className = 'opt';
+    l.innerHTML = '<input type="radio" name="reg"><span><span></span><small></small></span>';
+    const inp = l.querySelector('input');
+    inp.value = r.id;
+    l.querySelector('span span').textContent = r.name;
+    l.querySelector('small').textContent = r.sub;
+    if (picked && picked.id === r.id) inp.checked = true;
+    inp.onchange = () => { picked = {id: r.id, name: r.id === s.id ? s.name : r.name}; };
+    box.appendChild(l);
+  }
+  if (list.length > 40) box.insertAdjacentHTML('beforeend', '<p class="mute">Показано 40 — уточніть пошук.</p>');
+}
+$('state').onchange = () => { picked = null; renderRegs(); };
+$('q').oninput = renderRegs;
+$('regGo').onclick = async () => {
+  if (!picked) { alert('Виберіть громаду або область — або натисніть «Без тривог».'); return; }
+  await post('/api/region', picked);
+  show(4);
+};
+$('regNone').onclick = async () => { await post('/api/region', {id: ''}); show(4); };
+
+// ── 4. Готово ──
+function summary() {
+  $('sumWifi').textContent = st.wifi.ssid || '—';
+  $('sumLog').textContent = st.logger.sn ? st.logger.sn + ' · ' + (st.logger.ip || '') : '—';
+  $('sumReg').textContent = st.region.id ? st.region.name : 'без тривог';
+}
+$('save').onclick = async () => {
+  try { await post('/api/save'); $('saveMsg').textContent = 'Збережено. Табло перезапускається, мережа Deye-Setup зникне.'; $('save').disabled = true; }
+  catch (e) { $('saveMsg').textContent = 'Не все налаштовано: потрібні Wi-Fi і знайдений логер.'; }
+};
+$('reset').onclick = async (e) => {
+  e.preventDefault();
+  if (confirm('Стерти всі налаштування табло?')) { await post('/api/reset'); alert('Стерто. Табло перезапускається.'); }
+};
+
+function esc(s) { return String(s).replace(/[&<>"']/g, (c) => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c])); }
+
+async function poll() {
+  try {
+    st = await (await fetch('/api/state', {cache: 'no-store'})).json();
+    $('fw').textContent = 'прошивка ' + st.fw;
+    if (page === 1) renderNets();
+    renderWifi();
+    renderLogger();
+    if (page === 4) summary();
+  } catch (e) { /* телефон міг на мить відключитися від точки доступу — наступна спроба за секунду */ }
+  setTimeout(poll, 1000);
+}
+show(1);
+poll();
+</script>
+</body>
+</html>
