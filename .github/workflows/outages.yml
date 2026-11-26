@@ -1,35 +1,42 @@
 # Графіки відключень: раз на 30 хв забрати з сайтів обленерго, звести до спільного формату (outages/README.md)
-# і опублікувати на GitHub Pages. Поки — лише ручний запуск для перевірки, чи пускають сайти сервери GitHub.
+# і опублікувати на GitHub Pages: https://alexmovchan.github.io/deye-mini-display/outages/<provider>/<черга>.json
 name: outages
 
 on:
   workflow_dispatch:
-  # schedule:
-  #   - cron: "7,37 * * * *"   # увімкнути після перевірки доступу
+  schedule:
+    - cron: "7,37 * * * *"   # GitHub може запускати із затримкою 5–15 хв — для графіка це не критично
 
 permissions:
   contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
 
 jobs:
-  fetch:
+  publish:
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - name: Забрати графіки
-        run: python outages/fetch.py out
-      - name: Результат
-        if: always()
+      - name: Забрати графіки (збій джерела — лишити попередню публікацію)
         run: |
-          ls -R out | head -50 || true
-          cat out/ztoe/index.json || true
-          cat out/yasno-kyiv/index.json || true
-      - uses: actions/upload-artifact@v4
-        if: always()
+          mkdir -p site/outages
+          python outages/fetch.py site/outages https://alexmovchan.github.io/deye-mini-display/outages
+          echo "Графіки відключень для табло deye-mini-display: outages/<provider>/<черга>.json" > site/index.txt
+          touch site/.nojekyll
+          ls -R site | head -40
+      - uses: actions/upload-pages-artifact@v3
         with:
-          name: outages
-          path: out
-          if-no-files-found: ignore
+          path: site
+      - id: deploy
+        uses: actions/deploy-pages@v4
