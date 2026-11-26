@@ -2,6 +2,9 @@
 
 #include <WiFi.h>
 #include <esp_sntp.h>
+#include <freertos/FreeRTOS.h>
+#include <freertos/semphr.h>
+#include <ping/ping_sock.h>
 #include <time.h>
 
 #include "config.h"
@@ -83,6 +86,52 @@ void loop() {
 }
 
 bool online() { return WiFi.status() == WL_CONNECTED; }
+
+namespace {
+struct PingCtx {
+  SemaphoreHandle_t done;
+  volatile bool ok;
+};
+void onPingSuccess(esp_ping_handle_t, void* arg) { static_cast<PingCtx*>(arg)->ok = true; }
+void onPingEnd(esp_ping_handle_t, void* arg) { xSemaphoreGive(static_cast<PingCtx*>(arg)->done); }
+}  // namespace
+
+bool gatewayAlive() {
+  if (!online()) return false;
+  IPAddress gw = WiFi.gatewayIP();
+  if (gw == IPAddress((uint32_t)0)) return false;
+  PingCtx ctx{xSemaphoreCreateBinary(), false};
+  esp_ping_config_t cfg = ESP_PING_DEFAULT_CONFIG();
+  ip_addr_t target = {};
+  IP_ADDR4(&target, gw[0], gw[1], gw[2], gw[3]);
+  cfg.target_addr = target;
+  cfg.count = 3;
+  cfg.interval_ms = 300;
+  cfg.timeout_ms = 600;
+  esp_ping_callbacks_t cbs = {};
+  cbs.cb_args = &ctx;
+  cbs.on_ping_success = onPingSuccess;
+  cbs.on_ping_end = onPingEnd;
+  esp_ping_handle_t h = nullptr;
+  bool ok = false;
+  if (esp_ping_new_session(&cfg, &cbs, &h) == ESP_OK) {
+    esp_ping_start(h);
+    xSemaphoreTake(ctx.done, pdMS_TO_TICKS(4000));
+    esp_ping_stop(h);
+    esp_ping_delete_session(h);
+    ok = ctx.ok;
+  }
+  vSemaphoreDelete(ctx.done);
+  return ok;
+}
+
+void reconnect() {
+  evlog::add("Wi-Fi: перепідключаюсь (дані не ходили)");
+  WiFi.disconnect();
+  delay(500);
+  WiFi.begin(ssid_.c_str(), pass_.c_str());
+  lastAttempt = millis();
+}
 int rssi() { return lastRssi; }
 
 // Годинник ESP32 переживає програмне перезавантаження; після вимкнення живлення — з 1970 р., тоді чекаємо NTP.

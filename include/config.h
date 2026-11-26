@@ -2,7 +2,7 @@
 // Константи прошивки. Тут НЕМАЄ і не може бути жодних даних користувача (Wi-Fi, серійник, адреси):
 // усе це вводиться на платі під час налаштування й лежить у NVS (src/settings.cpp).
 
-#define FW_VERSION "0.1.2"
+#define FW_VERSION "0.1.3"
 #define HOSTNAME "deye-mini"
 
 // ── Налаштування: точка доступу й кнопка ──
@@ -18,7 +18,9 @@
 #define LOGGER_POLL_OFFSET   15               // секунда в 30-секундному циклі: :15/:45 — щоб не збігатися з іншими
                                               // пристроями, що теж читають логер (зазвичай :00/:30)
 #define LOGGER_FAILS_SEARCH  4                // стільки невдалих циклів поспіль (≈ 2 хв) → шукаємо логер знову
-#define LOGGER_STALE_SECONDS 90               // без свіжих даних стільки → «Логер не відповідає»
+#define LOGGER_STALE_SECONDS 90
+#define NET_PROBE_SECONDS    90               // нічого не вдалось стільки → ping роутера; не відповів двічі → перепідключити Wi-Fi
+#define NET_RESTART_RECONNECTS 3            // стільки перепідключень без жодного успіху → перезапуск плати               // без свіжих даних стільки → «Логер не відповідає»
 #define DISCOVERY_UDP_PORT   48899
 #define DISCOVERY_UDP_MSG    "WIFIKIT-214028-READ"
 #define SCAN_CONNECT_MS      250              // перебір підмережі: чекати TCP 8899 на одній адресі

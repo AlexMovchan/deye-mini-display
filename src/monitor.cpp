@@ -44,6 +44,37 @@ struct Lock {
 
 int64_t clockNow() { return net::timeValid() ? net::now() : 0; }
 
+// ── Сторож зв'язку: Wi-Fi буває «підключений», а дані не ходять (табло годинами шукає логер) ──
+uint32_t netOkMs = 0, lastProbe = 0;
+int deadProbes = 0, reconnects = 0;
+
+void netOk() {
+  netOkMs = millis();
+  deadProbes = 0;
+  reconnects = 0;
+}
+
+void watchdog() {
+  if (millis() - netOkMs < NET_PROBE_SECONDS * 1000UL || millis() - lastProbe < 30000UL) return;
+  lastProbe = millis();
+  if (net::gatewayAlive()) {
+    // Роутер відповідає — мережа жива, проблема в логері чи інтернеті; не чіпаємо
+    netOkMs = millis();
+    deadProbes = 0;
+    return;
+  }
+  if (++deadProbes < 2) return;
+  deadProbes = 0;
+  if (++reconnects > NET_RESTART_RECONNECTS) {
+    evlog::add("Wi-Fi: %d перепідключення не допомогли — перезапуск", NET_RESTART_RECONNECTS);
+    delay(300);
+    ESP.restart();
+  }
+  evlog::add("Wi-Fi: роутер не відповідає на ping (спроба %d)", reconnects);
+  net::reconnect();
+  netOkMs = millis();  // дати час на підключення
+}
+
 // ── Логер ──
 IPAddress loggerIp;
 int fails = 0;
@@ -67,6 +98,7 @@ void search() {
     return;
   }
   S.searchFailed = false;
+  netOk();
   S.deviceType = f.deviceType;
   S.unsupported = !inv::supported(f.deviceType);
   if (S.unsupported) evlog::add("Інвертор: тип %d — не підтримується", f.deviceType);
@@ -93,6 +125,7 @@ void poll() {
   }
   if (fails >= 1) evlog::add("Логер: знову відповідає");
   fails = 0;
+  netOk();
   int64_t now = clockNow();
   inv::Grid before = tracker.shown();
   tracker.update(r.reading, now);
@@ -135,6 +168,7 @@ void pollSiren() {
     S.alertFailed = true;
     return;
   }
+  netOk();
   if (sirenFails) evlog::add("Тривоги: siren.pp.ua знову відповідає");
   sirenFails = 0;
   if (a.active != S.alert.active || a.red != S.alert.red)
@@ -152,6 +186,7 @@ void task(void*) {
       continue;
     }
     if (needSearch && (lastSearch == 0 || millis() - lastSearch > 60000UL)) search();
+    watchdog();
     int64_t now = clockNow();
     int phase = now ? (int)(now % LOGGER_POLL_SECONDS) : -1;
     // Логер — першим. Своя половина циклу — з :15 (інші клієнти логера зазвичай на :00/:30); пропустили її
