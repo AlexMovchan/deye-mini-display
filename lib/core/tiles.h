@@ -11,10 +11,12 @@ namespace tiles {
 using Rgb = uint32_t;
 
 namespace color {
-constexpr Rgb FRAME_CALM = 0x2A2D33, FRAME_YELLOW = 0xF5C518, FRAME_RED = 0xD7263D;
-constexpr Rgb CARD = 0x1B1D22, CARD_LIGHT = 0xE6E8EB, CARD_OFF = 0x0B0C0F, BORDER = 0x3A3E46;
+// 0.1.1: на IPS-матриці під кутом темно-сірі картки на темно-сірому тлі зливались — тло чорне, картки світліші
+// з обвідкою, підписи світліші
+constexpr Rgb FRAME_CALM = 0x000000, FRAME_YELLOW = 0xF5C518, FRAME_RED = 0xD7263D;
+constexpr Rgb CARD = 0x262A31, CARD_EDGE = 0x4A505A, CARD_LIGHT = 0xE6E8EB, CARD_OFF = 0x000000, BORDER = 0x6A707A;
 constexpr Rgb TEXT = 0xE6E8EB, TEXT_DARK = 0x15171B, TEXT_DARK2 = 0x555B64;
-constexpr Rgb MUTED = 0xAEB4BD, DIM = 0x868C96, STALE = 0x5A606A, UNIT = 0xC3C8CF;
+constexpr Rgb MUTED = 0xCDD2D9, DIM = 0xA0A6AF, STALE = 0x6E747E, UNIT = 0xD8DCE1;
 constexpr Rgb ALERT_YELLOW = 0xF5C518, ALERT_RED = 0xFF6B78, WARN = 0xFF8A65;
 constexpr Rgb PLUS = 0x6EE7B7, MINUS = 0xFF8A65;
 constexpr Rgb SOC_GREEN = 0x4CC38A, SOC_YELLOW = 0xE5B92E, SOC_RED = 0xE5484D;

@@ -75,9 +75,9 @@ a{color:var(--muted)}
 
   <!-- 3. Тривоги -->
   <section id="p3" class="hide">
-    <label class="f">Область<select id="state"></select></label>
+    <label class="f">Місто або громада<input type="search" id="q" placeholder="наприклад, Київ" autocomplete="off"></label>
     <p></p>
-    <label class="f">Місто або громада<input type="search" id="q" placeholder="почніть вводити назву" autocomplete="off"></label>
+    <label class="f">Область (необов’язково — звузити пошук)<select id="state"></select></label>
     <p></p>
     <fieldset id="regs"></fieldset>
     <p class="mute">Громада бачить і тривоги, оголошені на її район чи область. Запит — раз на хвилину (siren.pp.ua).</p>
@@ -214,7 +214,7 @@ async function loadRegions() {
   }
   regions.states.sort((a, b) => a.name.localeCompare(b.name, 'uk'));
   const sel = $('state');
-  sel.innerHTML = '<option value="">— виберіть область —</option>';
+  sel.innerHTML = '<option value="">усі області</option>';
   for (const s of regions.states) sel.add(new Option(s.name, s.id));
   if (st.region.id) {
     const c = regions.comm.find((x) => x.id === st.region.id);
@@ -227,10 +227,24 @@ async function loadRegions() {
 function renderRegs() {
   const box = $('regs'), sid = $('state').value, q = $('q').value.trim().toLowerCase();
   box.innerHTML = '';
+  if (!sid && q.length >= 2) {
+    // Пошук по всіх регіонах: «Київ» знайде і «м. Київ», і громади з такою назвою; міста-регіони — першими
+    const stName = (id) => (regions.states.find((x) => x.id === id) || {}).name || '';
+    const city = (n) => (n.toLowerCase().startsWith('м. ' + q) ? 0 : 1);  // «м. Київ» — вище за «Київська область»
+    const list = regions.states.filter((s) => s.name.toLowerCase().includes(q)).sort((a, b) => city(a.name) - city(b.name))
+      .map((s) => ({id: s.id, name: s.name, sub: 'увесь регіон'}))
+      .concat(regions.comm.filter((c) => c.name.toLowerCase().includes(q)).map((c) => ({id: c.id, name: c.name, sub: stName(c.state) + (c.district ? ' · ' + c.district : '')})));
+    addOptions(box, list);
+    return;
+  }
   if (!sid) return;
   const s = regions.states.find((x) => x.id === sid);
   const list = [{id: s.id, name: /область$/.test(s.name) ? 'Уся ' + s.name : s.name, sub: 'увесь регіон'}];
   for (const c of regions.comm) if (c.state === sid && (!q || c.name.toLowerCase().includes(q))) list.push({id: c.id, name: c.name, sub: c.district});
+  addOptions(box, list);
+}
+
+function addOptions(box, list) {
   for (const r of list.slice(0, 40)) {
     const l = document.createElement('label');
     l.className = 'opt';
@@ -240,7 +254,7 @@ function renderRegs() {
     l.querySelector('span span').textContent = r.name;
     l.querySelector('small').textContent = r.sub;
     if (picked && picked.id === r.id) inp.checked = true;
-    inp.onchange = () => { picked = {id: r.id, name: r.id === s.id ? s.name : r.name}; };
+    inp.onchange = () => { picked = {id: r.id, name: r.name.replace(/^Уся /, '')}; };
     box.appendChild(l);
   }
   if (list.length > 40) box.insertAdjacentHTML('beforeend', '<p class="mute">Показано 40 — уточніть пошук.</p>');

@@ -108,9 +108,9 @@ struct MainUi {
 
 void createTile(TileUi& u, int x, int y) {
   u.box = box(S.scr, x, y, TILE_W, TILE_H, col::CARD, 10);
-  u.title = label(u.box, &inter_12_semi, col::MUTED);
+  u.title = label(u.box, &inter_14_semi, col::MUTED);
   lv_obj_set_x(u.title, TP);
-  baseline(u.title, 22);
+  baseline(u.title, 23);
   u.boltBg = line(u.box, BOLT, 7, 4, col::TEXT_DARK);
   u.bolt = line(u.box, BOLT, 7, 2, col::BOLT);
   u.slash = line(u.box, SLASH, 2, 2, col::UNIT);
@@ -126,15 +126,16 @@ void createTile(TileUi& u, int x, int y) {
   u.bar = box(u.box, TP, 96, TILE_W - 2 * TP, 8, col::CARD_OFF, 4);
   lv_obj_set_style_clip_corner(u.bar, true, 0);
   u.barFill = box(u.bar, 0, 0, 10, 8, col::SOC_GREEN, 0);
-  u.sub = wrapLabel(u.box, &inter_11, col::MUTED, TILE_W - 2 * TP);
+  u.sub = wrapLabel(u.box, &inter_12, col::MUTED, TILE_W - 2 * TP);
   lv_obj_set_x(u.sub, TP);
   lv_obj_set_y(u.sub, 106);
 }
 
 void applyTile(TileUi& u, const tiles::Tile& t) {
   lv_obj_set_style_bg_color(u.box, c(t.bg), 0);
-  lv_obj_set_style_border_width(u.box, t.border ? 2 : 0, 0);
-  if (t.border) lv_obj_set_style_border_color(u.box, c(t.border), 0);
+  // Кожна плитка з обвідкою: на чорному тлі межі плиток видно й під кутом
+  lv_obj_set_style_border_width(u.box, t.border ? 2 : 1, 0);
+  lv_obj_set_style_border_color(u.box, c(t.border ? t.border : t.bg == col::CARD_LIGHT ? col::CARD_LIGHT : col::CARD_EDGE), 0);
   setText(u.title, t.title, t.titleColor);
   show(u.boltBg, t.icon == tiles::Icon::BoltOn);
   show(u.bolt, t.icon != tiles::Icon::None);
@@ -162,7 +163,7 @@ void applyTile(TileUi& u, const tiles::Tile& t) {
   }
   setText(u.sub, t.sub, t.subColor);
   // Текст під смужкою або під значенням
-  lv_obj_set_y(u.sub, t.bar ? 108 : 98);
+  lv_obj_set_y(u.sub, t.bar ? 107 : 96);
 }
 
 void createMain() {
@@ -170,14 +171,16 @@ void createMain() {
   lv_obj_remove_flag(S.scr, LV_OBJ_FLAG_SCROLLABLE);
   lv_obj_set_style_bg_color(S.scr, c(col::FRAME_CALM), 0);
   S.topBox = box(S.scr, M, M, 240 - 2 * M, TOP_H, col::CARD, 8);
-  S.top = label(S.topBox, &inter_12_semi, col::MUTED);
-  lv_obj_set_width(S.top, 240 - 2 * M - 20 - 44);
+  lv_obj_set_style_border_width(S.topBox, 1, 0);
+  lv_obj_set_style_border_color(S.topBox, c(col::CARD_EDGE), 0);
+  S.top = label(S.topBox, &inter_14_semi, col::MUTED);
+  lv_obj_set_width(S.top, 240 - 2 * M - 26 - 44);
   lv_obj_set_x(S.top, 10);
   baseline(S.top, 20);
-  S.clock = label(S.topBox, &inter_12, col::MUTED);
-  lv_obj_set_width(S.clock, 40);
+  S.clock = label(S.topBox, &inter_14_semi, col::TEXT);
+  lv_obj_set_width(S.clock, 44);
   lv_obj_set_style_text_align(S.clock, LV_TEXT_ALIGN_RIGHT, 0);
-  lv_obj_set_x(S.clock, 240 - 2 * M - 10 - 40);
+  lv_obj_set_x(S.clock, 240 - 2 * M - 10 - 44);
   baseline(S.clock, 20);
   int xs[2] = {M, M + TILE_W + GAP}, ys[2] = {TILE_Y0, TILE_Y0 + TILE_H + GAP};
   for (int i = 0; i < 4; i++) createTile(S.t[i], xs[i % 2], ys[i / 2]);
@@ -267,13 +270,16 @@ void begin() {
 void showTiles(const tiles::Model& m) {
   lv_obj_set_style_bg_color(S.scr, c(m.frame), 0);
   // Довга назва тривоги («Дронова небезпека · з 10:02») — дрібнішим шрифтом, щоб влізла поруч із годинником
-  const lv_font_t* tf = textWidth(m.top, &inter_12_semi) <= lv_obj_get_width(S.top) ? &inter_12_semi : &inter_11;
+  constexpr int TOP_W = 240 - 2 * M - 26 - 44;  // ширина мітки (до розкладки LVGL get_width ще 0)
+  const lv_font_t* tf = textWidth(m.top, &inter_14_semi) <= TOP_W   ? &inter_14_semi
+                        : textWidth(m.top, &inter_12_semi) <= TOP_W ? &inter_12_semi
+                                                                    : &inter_11;
   if (lv_obj_get_style_text_font(S.top, LV_PART_MAIN) != tf) {
     lv_obj_set_style_text_font(S.top, tf, 0);
     baseline(S.top, 20);
   }
   setText(S.top, m.top, m.topColor);
-  setText(S.clock, m.clock, col::MUTED);
+  setText(S.clock, m.clock, col::TEXT);
   const tiles::Tile* ts[4] = {&m.light, &m.soc, &m.load, &m.batt};
   for (int i = 0; i < 4; i++) {
     show(S.t[i].box, !m.message);

@@ -190,7 +190,7 @@ Model build(const Input& in) {
       put(B.sub, sizeof B.sub, "заряджається");
     } else if (r.battW > 20) {
       B.valueColor = B.unitColor = color::MINUS;
-      put(B.sub, sizeof B.sub, "розряджається");
+      put(B.sub, sizeof B.sub, "розряд");  // «розряджається» не влазить у плитку
     } else {
       put(B.big, sizeof B.big, "0");
       B.valueColor = color::MUTED;
