@@ -1,14 +1,15 @@
-# Нормалізатор графіків відключень
+# Outage schedule normalizer
 
-Табло не знає, як влаштовані сайти обленерго. Раз на 30 хв GitHub Actions запускає `outages/fetch.py`: кожен
-адаптер (`adapters/*.py`) забирає графік зі свого джерела й перетворює на **один спільний формат**, а результат
-публікується на GitHub Pages. Табло бере лише маленький файл своєї черги.
+The display knows nothing about how grid operators' websites are built. Every 30 minutes GitHub Actions runs
+`outages/fetch.py`: each adapter (`adapters/*.py`) fetches the schedule from its source and converts it into
+**one common format**, and the result is published on GitHub Pages. The display fetches only the small file
+for its own group.
 
-Змінився сайт обленерго — правиться адаптер тут, прошивку оновлювати не треба.
+When an operator changes its website, the adapter is fixed here — the firmware does not need an update.
 
-## Формат (v1)
+## Format (v1)
 
-`out/<provider>/<черга>.json`, наприклад `out/ztoe/3.2.json`:
+`out/<provider>/<group>.json`, for example `out/ztoe/3.2.json`:
 
 ```json
 {
@@ -24,20 +25,31 @@
 }
 ```
 
-- `off` — 48 символів, по одному на кожні 30 хв від 00:00 за київським часом: `1` — світла немає, `0` — є,
-  `?` — джерело позначило незрозуміло (табло показує як невідоме).
-- `status`: `applies` — графік діє; `waiting` — ще не опубліковано (`off` порожній); `emergency` — екстрені
-  відключення (графік не діє).
-- `out/<provider>/index.json` — список черг і назва постачальника (для сторінки налаштування).
+- `off` — 48 characters, one per 30 minutes from 00:00 Kyiv time: `1` — no power, `0` — power on,
+  `?` — the source marks it ambiguously (the display treats it as unknown).
+- `status`: `applies` — the schedule is in effect; `waiting` — not published yet (`off` is empty);
+  `emergency` — emergency outages (the schedule does not apply).
+- `out/<provider>/index.json` — the list of groups and the provider name (for the setup page).
+- `name` is shown to users as is, so it stays in Ukrainian.
 
-Якщо адаптер не зміг розібрати відповідь (сайт змінився), старі файли **не перезаписуються** — краще вчорашній
-графік з позначкою часу, ніж неправильний.
+If an adapter cannot parse the response (the site changed), the previous files are **kept** — yesterday's schedule
+with a timestamp is better than a wrong one. The display shows "no data" when the file is older than 12 hours.
 
-## Постачальники
+Published at `https://alexmovchan.github.io/deye-mini-display/outages/<provider>/<group>.json`.
 
-| id | Регіон | Джерело | Формат |
+## Providers
+
+| id | Region | Source | Format |
 | --- | --- | --- | --- |
-| `yasno-kyiv` | Київ (ДТЕК Київські електромережі) | `app.yasno.ua` — JSON | відрізки в хвилинах |
-| `ztoe` | Житомирщина (Житомиробленерго) | `www.ztoe.com.ua/unhooking-search.php` — HTML, windows-1251 | таблиця 48 × 30 хв, червоний = відключення |
+| `yasno-kyiv` | Kyiv (DTEK Kyiv Electric Networks) | `app.yasno.ua` — JSON | intervals in minutes |
+| `ztoe` | Zhytomyr region (Zhytomyroblenergo) | `www.ztoe.com.ua/unhooking-search.php` — HTML, windows-1251 | 48 × 30 min table, red = outage |
 
-Локально: `python outages/fetch.py` (результат — у `outages/out/`).
+Notes:
+
+- **ztoe.com.ua** serves a stale copy of the page (without recent changes and without tomorrow) to some
+  User-Agent strings — e.g. ones containing "outages", "Python-urllib" or a github.com URL. The adapter sends
+  `Mozilla/5.0 (compatible; deye-mini-display)`, which gets the same page as a browser (checked 2026-11-26).
+- Zhytomyr's official "Svitlochek" API (`api-ztoe-poweron.inneti.net`) only serves the schedule as an image,
+  so the HTML table is used instead.
+
+Run locally: `python outages/fetch.py` (output goes to `outages/out/`).

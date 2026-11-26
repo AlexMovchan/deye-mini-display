@@ -1,203 +1,177 @@
-# План: автономне міні-табло Deye
+# Plan: standalone Deye mini display
 
-Окремий проєкт. Частину коду беремо з приватного домашнього проєкту автора (табло біля РК-панелі),
-але **жодних даних автора** (адрес, серійників, паролів, черг) тут бути не може: усе, що залежить від
-квартири, користувач вводить на самій платі під час налаштування.
+A separate project. Some code comes from the author's private home project (a display next to an LCD panel),
+but **none of the author's data** (addresses, serial numbers, passwords, groups) may appear here: everything that
+depends on the home is entered by the user on the board during setup.
 
-## 1. Що показуємо
+## 1. What the display shows
 
-Один екран — **плитки 2×2** (варіант C з макетів) + рядок тривоги згори:
+### Main screen — 2×2 tiles (variant C) with an alert line on top
 
-| Плитка | Що | Звідки |
+| Element | What | Source |
 | --- | --- | --- |
-| Рядок згори | «Тривоги немає» / «Повітряна тривога · з 15:41» + час оновлення. Без міста в налаштуваннях — лише час | siren.pp.ua |
-| Світло | «Є» (біла плитка, жовта блискавка) / «Немає» (чорна) + «з 09:30 · 234 В» | напруга мережі з інвертора |
-| Заряд | загальний % + смужка: ≥75 % зелена, 45–74 % жовта, <45 % червона | інвертор |
-| Споживання | Вт зараз + «за добу … кВт·год» | інвертор |
-| Батарея | світло є: «+42 Вт» (зелене, заряд) / «−… Вт» (червоне, розряд). Світла немає: «Вистачить ≈ 2 год» | інвертор |
+| Top line | "Тривоги немає" (no alert) / "Повітряна тривога · з 15:41" (alert since…) + update time + Wi-Fi icon. Without a region — only the time | siren.pp.ua |
+| Grid | "Є" (white tile, yellow bolt) / "Немає" (black) + "since 09:30 · 234 V" | grid voltage from the inverter |
+| Charge | total % + bar: ≥75 % green, 45–74 % yellow, <45 % red | inverter |
+| Consumption | W now + "today … kWh" | inverter |
+| Battery | grid on: "+42 W" (green, charging) / "−… W" (red, discharging). Grid off: "lasts ≈ 2 h" | inverter |
 
-Рамка екрана — колір тривоги: сіра (спокійно або місто не задане), жовта, червона.
-Окремих акумуляторів **немає**: лише те, що інвертор рахує по всьому банку батарей (1 чи 3 акумулятори — однаково).
-Графіка відключень **поки немає** (див. §8).
+The screen frame shows the alert colour: grey (calm or no region), yellow, red. High contrast: black background,
+2 px tile borders. Individual batteries are **not** shown — only what the inverter reports for the whole bank.
 
-Правила (з досвіду домашнього проєкту):
-- **Логер не відповів ≠ світла немає.** Збій зв’язку → «Немає даних» сірим, ніколи не «світла немає».
-- «Світло є/немає» змінюється лише після 2 однакових зчитувань поспіль (стрибки напруги не дають блимання).
-- Немає частини даних → сірим лише те, чого бракує.
+Wi-Fi icon next to the clock: white — connected, yellow — weak (< −75 dBm), grey with a slash — no data for over 2 min.
 
-## 2. Залізо
+### Screen 2 (swipe right to left) — outage schedule
 
-**NiceMCU-32S-DEV 2.8IPS** (ревізія плати DEV2.0): ESP32-D0WD-V3, 4 МБ флешу, **без PSRAM**, CH340C (USB-C),
-екран ST7789 240×320 IPS (SPI), сенсор CST816D (I²C), підсвітка ШІМ. Документація виробника:
+Up to 4 text rows starting from the current interval, e.g. "14:00–18:00": white — power on, red — power off,
+"завтра" (tomorrow) note for rows on the next day. Instead of rows — only "Екстрені відключення" (emergency
+outages) or "Даних немає" (no data: no schedule, no clock, or the file is older than 12 h). Nothing else.
+Returns to the main screen by swipe or after 60 s.
+
+Rules (from the home project):
+- **Logger did not answer ≠ no power.** A connection failure → "no data" in grey, never "no power".
+- "Grid on/off" changes only after 2 identical readings in a row (voltage spikes do not cause flicker).
+- When part of the data is missing, only that part is grey.
+
+## 2. Hardware
+
+**NiceMCU-32S-DEV 2.8IPS** (board revision DEV2.0): ESP32-D0WD-V3, 4 MB flash, **no PSRAM**, CH340C (USB-C),
+ST7789 240×320 IPS screen (SPI), CST816D touch (I²C), PWM backlight. Vendor documentation:
 <https://github.com/NiceMCU-01/NiceMCU-32S-DEV_2.8IPS>.
 
-| Що | Піни |
+| What | Pins |
 | --- | --- |
-| Екран SPI | MOSI 13, SCLK 14, CS 15, DC 12 (⚠️ strapping: не тягнути вгору до ініціалізації), 24 МГц |
-| Скидання екрана й сенсора | GPIO2 (спільне) |
-| Підсвітка | GPIO25, ШІМ |
-| Сенсор | SDA 33, SCL 32, INT 36, адреса 0x15 |
-| Кнопка BOOT | GPIO0 — після старту: утримання 5 с = скидання налаштувань |
+| Screen SPI | MOSI 13, SCLK 14, CS 15, DC 12 (⚠️ strapping pin: must not be pulled high before init), 24 MHz |
+| Screen and touch reset | GPIO2 (shared) |
+| Backlight | GPIO25, PWM |
+| Touch | SDA 33, SCL 32, INT 36, address 0x15 |
+| BOOT button | GPIO0 — after start: hold 5 s = setup mode |
 
-Відомо з досвіду: енергозбереження Wi-Fi ESP32 на цій платі дає втрату половини пакетів і затримки до 400 мс —
-**вимикати** (`WiFi.setSleep(false)`). Трапляються браковані плати без зв’язку USB-UART — інструмент перевірки
-`tools/check_board` (з домашнього проєкту) додати сюди.
+Known from experience:
+- ESP32 Wi-Fi power saving on this board loses half the packets and adds up to 400 ms latency — it is **disabled**
+  (`WiFi.setSleep(false)`).
+- Some boards ship with a dead USB-UART link (no RX data at all) — check with `tools/check_board`.
 
-## 3. Інвертор: що читаємо
+## 3. Inverter: what is read
 
-Лише Modbus-функція **0x03** (читання). Запис (0x06/0x10) у коді заборонений. Логер — протокол **Solarman V5**
-поверх TCP, порт **8899**, у кадрі — серійник логера.
+Modbus function **0x03** only (read). Writes (0x06/0x10) are forbidden in the code. The logger speaks
+**Solarman V5** over TCP port **8899**; the frame carries the logger serial number.
 
-Однофазні гібридні Deye (SG0xLP1), перевірено на SUN-…-SG0xLP1:
+Single-phase Deye hybrids (SG0xLP1), checked on SUN-…-SG0xLP1:
 
-| Регістр | Що | Одиниці |
+| Register | What | Units |
 | --- | --- | --- |
-| 184 | заряд батареї (загальний) | % |
-| 190 | потужність батареї, мінус = заряджається | Вт, int16 |
-| 178 | споживання квартири | Вт, int16 |
-| 150 | напруга мережі | ×0,1 В |
-| 169 | потужність мережі | Вт, int16 |
-| 84 | спожито за сьогодні | ×0,1 кВт·год |
-| 204 | ємність батареї з налаштувань інвертора | А·год |
+| 0 | device type (3 = single-phase hybrid) | — |
+| 84 | consumed today | ×0.1 kWh |
+| 150 | grid voltage | ×0.1 V |
+| 178 | home consumption | W, int16 |
+| 183 | battery voltage | ×0.01 V |
+| 184 | battery charge (total) | % |
+| 190 | battery power, negative = charging | W, int16 |
+| 204 | battery capacity from inverter settings | Ah |
+| 217 | battery shutdown SOC | % |
 
-«Світло є» — напруга мережі ≥ 180 В. «Вистачить ≈» = (заряд − поріг розряду) × ємність × 51,2 В / середнє
-споживання за 10 хв. ⚠️ Поріг розряду (зараз 20 %) у людей різний — винести в налаштування або читати з інвертора
-(регістр ще знайти).
+"Grid on" — grid voltage ≥ 180 V. "Lasts ≈" = (charge − shutdown SOC) × capacity × battery voltage / average
+consumption over 10 min.
 
-⚠️ **Трифазні Deye (SG0xLP3) мають іншу карту регістрів** — не підтримуються, поки не з’явиться тестувальник.
-Табло має це розпізнати й чесно написати, а не показувати нісенітницю (як — відкрите питання §7).
+⚠️ **Three-phase Deye (SG0xLP3) use a different register map** — not supported until a tester shows up.
+The display detects this from register 0 and says "not supported" instead of showing nonsense.
 
-Опитування: раз на 30 с, одне з’єднання за раз (логери погано тримають кілька паралельних).
+Polling: every 30 s from :15 of each cycle, one connection at a time (loggers handle parallel clients badly);
+a forced poll if more than 45 s passed since the last one; one retry after 2 s before counting a failure.
 
-## 4. Тривоги: siren.pp.ua
+## 4. Alerts: siren.pp.ua
 
-Без токена (обгортка над Ukraine Alarm), ліміт 50 запитів/хв з IP. Табло робить **1 запит на хвилину** і лише якщо
-задано регіон. Надсилати `User-Agent`.
+No token (a wrapper around Ukraine Alarm), limit 50 requests/min per IP. The display makes **1 request per minute**
+and only if a region is set. Sends a `User-Agent`.
 
-- Дерево регіонів: `GET https://siren.pp.ua/api/v3/regions` → `states[]` (29 областей) → `regionChildIds` (122 райони)
-  → громади (1455), наприклад «м. Житомир та Житомирська територіальна громада». На сторінці налаштування:
-  область → пошук громади; можна вибрати й усю область.
-- Тривога: `GET https://siren.pp.ua/api/v3/alerts/<regionId>`. **Перевірено 26.11.2026:** запит по громаді
-  (`442`, м. Житомир) повертає й тривогу, оголошену на район (`59`), тобто батьківські рівні входять у відповідь —
-  одного запиту досить.
-- Збій запиту → «Тривога: немає даних», рамка сіра.
+- Region tree: `GET https://siren.pp.ua/api/v3/regions` → `states[]` (29 oblasts) → `regionChildIds` (122 raions)
+  → communities (1455). The list is built into the firmware (16 KB). Setup page: oblast → community search;
+  a whole oblast can be chosen too.
+- Alert: `GET https://siren.pp.ua/api/v3/alerts/<regionId>`. **Checked 2026-11-26:** a community request also
+  returns alerts declared for its raion, i.e. parent levels are included — one request is enough.
+- Request failure → "Тривога: немає даних" (no data), grey frame.
 
-## 5. Налаштування на платі
+## 5. Setup on the board
 
-Перший запуск (немає збережених налаштувань) або утримання BOOT 5 с:
+First start (no saved settings), holding BOOT for 5 s, or the `setup` serial command:
 
-1. Плата піднімає точку доступу **Deye-Setup** (без пароля) і captive portal; на екрані — QR-код мережі й підказка.
-2. Телефон підключається, сторінка відкривається сама. Кроки:
-   1. **Wi-Fi:** список знайдених мереж (лише 2,4 ГГц) + пароль; плата перевіряє підключення.
-   2. **Логер:** серійний номер з наклейки (10 цифр). Пошук і перевірка — §6.
-   3. **Тривоги:** область → громада, або «без тривог».
-3. «Готово» → збереження в NVS → перезапуск → робота.
+1. The board starts the **Deye-Setup** access point (no password) with a captive portal; the screen shows a QR
+   code for the network.
+2. The phone connects and the page opens by itself. Steps:
+   1. **Wi-Fi:** list of found networks (2.4 GHz only) + password; the board checks the connection.
+   2. **Logger:** serial number from the sticker (10 digits). Search — §6.
+   3. **Alerts:** oblast → community, or "no alerts".
+   4. **Outage schedule:** "Київ" (by address: street → house → group via Yasno, requests go through the board
+      since the phone has no internet in setup mode) / "Житомирщина" (group 1.1…6.2) / "Без графіка" (none).
+      The Kyiv group can also be typed manually (a comma is accepted as the decimal separator).
+3. "Готово" → saved to NVS → restart → normal operation.
 
-Зберігається в NVS: SSID, пароль Wi-Fi, серійник логера, остання робоча IP-адреса логера, `regionId` і назва.
-Секретів у репозиторії немає зовсім. Пароль Wi-Fi у NVS не шифрується (як у більшості таких пристроїв) — сказати
-про це в README.
+Stored in NVS: Wi-Fi SSID and password, logger serial, last working logger IP, `regionId` and name, outage provider
+and group, Kyiv street/house IDs and address. Nothing secret is in the repository. The Wi-Fi password in NVS is not
+encrypted (as in most such devices) — the README says so.
 
-## 6. Пошук логера
+## 6. Finding the logger
 
-- Спершу — широкомовний запит Solarman (UDP 48899, `WIFIKIT-214028-READ`): логер може відповісти «IP,MAC,SN».
-  ⚠️ Логер автора на нього **не відповів** (з ПК; можливо, брандмауер) — перевірити з плати.
-- Інакше — перебір адрес своєї підмережі /24 з відкритим TCP 8899 (≈ 30–60 с, один раз), і перевірка кожного
-  кандидата одним зчитуванням регістра 184 із введеним серійником.
-- Знайдену адресу зберегти. Якщо логер перестав відповідати N циклів поспіль — повторити пошук за серійником
-  (роутер міг видати іншу адресу). Під час пошуку — «Немає даних», не «світла немає».
+- First a Solarman UDP broadcast (port 48899, `WIFIKIT-214028-READ`): the logger may reply "IP,MAC,SN".
+- Otherwise — scan the /24 subnet for hosts with TCP 8899 open (≈ 30–60 s, once), and check each candidate with
+  one register read using the entered serial number.
+- The found address is saved. If the logger stops answering for several cycles in a row, the search repeats
+  (the router may have given it another address). During the search — "no data", never "no power".
 
-## 7. Відкриті питання й ризики
+## 7. Networking and memory
 
-1. **Модель інвертора.** Як розпізнати однофазний/трифазний (регістр типу пристрою?) і що показувати несумісному.
-2. **Логери з закритим портом 8899.** Деякі нові прошивки Solarman вимикають локальний доступ — табло тоді не працює;
-   написати в README, як перевірити заздалегідь.
-3. **Серійник логера** — без нього логер не відповідає. Чи можна дізнатися його автоматично (UDP §6).
-4. **Поріг розряду для «вистачить ≈»** — налаштування чи регістр інвертора.
-5. **Пам’ять без PSRAM:** HTTPS до siren.pp.ua (~40 КБ) + LVGL + вебсервер налаштування одночасно — перевірити на
-   залізі; у режимі налаштування тривоги не опитувати.
-6. **Мережі:** лише 2,4 ГГц; логер в іншій підмережі (повторювач) не знайдеться перебором.
-7. **Оновлення прошивки:** спершу лише через сторінку встановлення (USB). Автооновлення з GitHub Releases — пізніше.
-8. **Ліцензія** — MIT (`LICENSE`); шрифт Inter — SIL OFL (файл ліцензії поруч), LVGL — MIT.
+- **HTTPS** (mbedTLS, no PSRAM) needs a large contiguous heap block. Only one HTTPS connection at a time, only in
+  the :20–:27 window of each 30 s cycle, one request per pass: siren → outage file → Kyiv group recheck.
+- **Root certificates per source** (`src/root_ca.h`): parsing all 13 roots at once failed with -10368 (X509 alloc
+  failed) and left the board with no roots at all. Now: siren.pp.ua and github.io → ISRG Root X1 + ISRG Root YR
+  (Let's Encrypt); app.yasno.ua → GlobalSign Root R46.
+- **LVGL 9.5** with its own pool (48 KB on the board), allocated once; screens are created lazily and only one work
+  screen exists at a time — this keeps the heap unfragmented for TLS.
+- **Connection watchdog:** nothing succeeded for 90 s → ping the gateway; two failed pings → Wi-Fi reconnect;
+  three reconnects without success → restart.
+- On a TLS verification failure (-9984) the board logs a diagnostic (chain, verify flags, time) at most 3 times
+  per boot.
 
-## 8. Поза скоупом (поки)
+## 8. Outage schedules
 
-- **Графік відключень.** Yasno (ДТЕК) має публічний API лише для Києва й Дніпра; інші обленерго (Житомир тощо) —
-  кожне окремо, часто без API. Повернутися, коли з’явиться конкретне місто й джерело.
-- Окремі акумулятори, трифазні інвертори, Telegram-бот, карта тривог.
+The normalizer in `outages/` (see [`outages/README.md`](../outages/README.md)) runs on GitHub Actions at :07 and :37
+and publishes `https://alexmovchan.github.io/deye-mini-display/outages/<provider>/<group>.json`. The display fetches
+its file every 30 min (retry in 5 min on failure); for Kyiv it rechecks the group by address once a day.
 
-## 9. Етапи
+Providers: Yasno (Kyiv, public JSON API) and Zhytomyroblenergo (HTML table on ztoe.com.ua). Other regions — when a
+specific city and a source appear.
 
-| # | Етап | Стан (26.11.2026) |
+## 9. Status (2026-11-26)
+
+| # | Stage | Status |
 | --- | --- | --- |
-| 0 | Каркас | ✅ PlatformIO, `lib/core` (кадр Solarman V5, регістри, світло з підтвердженням, «вистачить», siren.pp.ua, пошук логера, модель плиток), 16 тестів на ПК (`pio test -e native`), кадри звірено з pysolarmanv5 |
-| 1 | Екран | ✅ у коді: плитки C, повідомлення («шукаю логер», «не підтримується»), екран налаштування з QR; рендер на ПК (`pio test -e render`, `docs/design/`). На залізі — ще ні |
-| 2 | Налаштування | ✅ у коді: Deye-Setup + captive portal, сторінка (Wi-Fi → логер → тривоги → готово) перевірена в браузері на імітації API; NVS; BOOT 5 с / команда `setup` у Serial. На залізі — ще ні |
-| 3 | Логер | ✅ у коді: збережена адреса → UDP 48899 → перебір /24; тип пристрою (регістр 0); опитування раз на 30 с на :15/:45; повторний пошук після 4 збоїв. На залізі — ще ні |
-| 4 | Тривоги | ✅ у коді: 1 запит/хв, лише з регіоном і після NTP; список регіонів вбудований (1483 рядки, 16 КБ). На залізі — ще ні |
-| 5 | Встановлення | сторінка з ESP Web Tools (GitHub Pages) + збірка релізу — далі |
-| 6 | Надійність | доба без нагляду; логер і Wi-Fi зникають і повертаються |
+| 0 | Skeleton | ✅ PlatformIO, `lib/core` (Solarman V5 frames, registers, confirmed grid state, "lasts ≈", siren.pp.ua, logger discovery, tile model, outage schedule), 19 PC tests (`pio test -e native`), frames checked against pysolarmanv5 |
+| 1 | Screens | ✅ tiles, messages ("searching for logger", "not supported"), setup screen with QR, schedule screen; PC render (`pio test -e render`, `docs/design/`) |
+| 2 | Setup | ✅ on hardware: Deye-Setup + captive portal, 4 steps, NVS |
+| 3 | Logger | ✅ on hardware |
+| 4 | Alerts | ✅ on hardware (since 0.2.6 — per-source root certificates) |
+| 5 | Installation | ✅ releases with full and update images, flashing from the browser via esptool-js |
+| 6 | Outage schedules | ✅ normalizer on GitHub Pages; Zhytomyr checked against the site on 2026-11-26 |
+| 7 | Reliability | in progress: a day unattended; logger and Wi-Fi disappearing and coming back |
 
-Перевірити на першій прошивці: регістр 217 — справді поріг вимкнення від батареї (на тестовому інверторі 15 %,
-218 = 25, 219 = 20 — звірити з налаштуваннями в застосунку); чи відповідає логер на UDP 48899 з плати; captive portal
-на Android та iOS; перемикання каналу точки доступу при підключенні станції.
+## 10. Open questions
 
-Шрифт великих цифр — поки Inter 28 px (є в проєкті); для більших (≈ 40 px, як у макеті) потрібні файли Inter
-(SIL OFL) і `lv_font_conv`.
+1. **Scheduled GitHub Actions runs** did not fire on the first day (only manual runs). Check that the
+   `schedule` trigger starts working; otherwise find another trigger.
+2. **Kyiv address lookup on the board** — the Yasno certificate (Imperva, 3.8 KB, 111 SANs, RSA-4096 root) may not
+   fit in memory; verify with per-source roots.
+3. **Loggers with port 8899 closed.** Some new Solarman firmware disables local access — the display cannot work
+   then; describe in the README how to check in advance.
+4. **Three-phase inverters** — need a tester and a register map.
+5. **Bigger font** for the schedule rows (needs Inter TTF and `lv_font_conv`).
+6. **Networks:** 2.4 GHz only; a logger in another subnet (repeater) is not found by the scan.
+7. **Firmware updates:** USB only for now; auto-update from GitHub Releases — later.
 
-## 9a. Наступне (план на 26.11.2026, продовжити звідси)
+## 11. Out of scope (for now)
 
-### Баги з першої перевірки на залізі (0.1.1, журнал з плати 19:14–19:25)
+Individual batteries, three-phase inverters, a Telegram bot, an alert map.
 
-У 0.1.2 виправлено п. 1 і 3 (логер першим, вікно з :15 до кінця половини циклу + обов'язкове опитування,
-якщо минуло 45 с; повтор запиту через 2 с; тривоги лише в :20–:27 з тайм-аутом 4 с) і для п. 2 у журнал пишеться
-вільна пам'ять і найбільший блок при збої siren.pp.ua. Причину збоїв siren.pp.ua ще не встановлено.
+## 12. Design
 
-**0.1.3 — Wi-Fi «зависає» (журнал 26.11 20:51–21:24).** Плата ~40 хв вважала себе підключеною (сигнал −61 дБм),
-але не дістала ні логер, ні siren.pp.ua, і не відповідала на ping з ПК; логер у той час відповідав ПК і РК.
-Тобто збої siren.pp.ua (п. 2), ймовірно, теж від цього, а не від пам'яті (вільно 136 КБ, блок 37 КБ).
-Сторож зв'язку: нічого не вдалось 90 с → ping роутера; двічі без відповіді → перепідключення Wi-Fi; 3 перепідключення
-без успіху → перезапуск плати. Перевірити на залізі, чи зависання повторюється і чи сторож його знімає.
-
-1. **Табло «замовкає» на 4+ хв.** Опитування логера дозволене лише у вікні :15–:20 і :45–:50, а запит до
-   siren.pp.ua в тій самій задачі при збої висить до 8–20 с (`-1` — не з'єднався, `-11` — тайм-аут) і перекриває
-   вікно — цикли логера пропускаються підряд. Виправити: логер першим; вікно — «від :15 до наступного циклу»
-   (не 5 с); тайм-аут siren коротший (4 с); після збою siren — пауза, а не повтор щохвилини.
-2. **siren.pp.ua не відповідає з плати** (`-1`, `-11`), хоча з ПК відповідає. Перевірити: вільна пам'ять і
-   найбільший блок перед TLS (без PSRAM TLS бере ~40 КБ суцільно), DNS. Додати в журнал heap/блок при збої.
-3. **Поодинокі збої логера** («немає з'єднання», «неповний кадр») — збіг з іншими клієнтами логера (РК на :00/:30,
-   ручні читання). Повтор одного запиту через 2 с перед тим, як рахувати збій.
-4. **Значок Wi-Fi** у рядку тривоги поруч із годинником: є / слабкий (< −75 дБм) / немає — щоб було видно,
-   що табло не на зв'язку (макет — полотно автономного табло).
-
-### Графіки відключень (рішення власника 26.11.2026)
-
-**0.2.0 (у коді, 26.11.2026):** значок Wi-Fi біля годинника (білий — є, жовтий — слабкий < −75 дБм, сірий з рискою —
-дані не ходять понад 2 хв); GitHub Pages з розкладом :07/:37 (`.github/workflows/outages.yml`, при збої джерела —
-попередня публікація); крок 4 налаштування «Графік відключень» (Київ — вулиця → будинок → черга через табло,
-Житомирщина — 1.1…6.2); табло бере свій файл раз на 30 хв (повтор за 5 хв), Київ — перевірка черги раз на добу;
-екран 2 свайпом (сьогодні 24 клітинки, завтра — смужка з 48 півгодинок, «графік на HH:MM»). На залізі — ще ні.
-
-- Нормалізатор на GitHub (`outages/`, адаптери Yasno і Житомиробленерго) — ✅ працює з серверів GitHub.
-- Далі: робочий процес — розклад раз на 30 хв і публікація на **GitHub Pages**
-  (`https://alexmovchan.github.io/deye-mini-display/outages/<provider>/<черга>.json`); при збої адаптера —
-  лишати попередні файли (підтягнути з Pages перед публікацією). Увімкнути Pages (джерело — GitHub Actions) — з
-  дозволу власника.
-- **Налаштування, крок «Графік»:** «Київ» / «Житомирщина» / «Без графіка».
-  - Житомирщина — **вибір черги** 1.1 … 6.2 (адресу не питаємо; підказка — пошук на ztoe.com.ua).
-  - Київ — **адреса**: вулиця → будинок → черга через Yasno
-    (`…/shutdowns/addresses/v2/streets?regionId=25&dsoId=902&query=`, `…/houses?…&streetId=&query=`,
-    `…/group?…&streetId=&houseId=` → `{"group":47,"subgroup":1}`). Запити робить табло (телефон у режимі
-    налаштування без інтернету). Зберігати streetId/houseId і раз на добу перевіряти чергу.
-- **Табло:** запит свого файлу раз на 30 хв (повтор через 5 хв при збої), сертифікат github.io — перевірити й
-  додати в `root_ca.h`.
-- **Екран 2** — свайп справа наліво (як у домашньому табло: `handleTouch`, `SWIPE_MIN_PX 60`, назад свайпом або
-  сам через 60 с): сьогодні 24 клітинки-години з половинками (біла — світло, чорна — немає), поточна година
-  в жовтій рамці 3 px, лінія, завтра або «ще не опубліковано»; час оновлення графіка.
-- Дослідження Житомира: «Світлочек» — офіційний додаток ЖОЕ; відкрите API `api-ztoe-poweron.inneti.net/api`
-  має довідники РЕМ/населені пункти/вулиці, але графік там лише картинкою, а пошук черги порожній —
-  тому графік беремо з таблиці на ztoe.com.ua.
-
-## 10. Дизайн
-
-Макети (основний екран — 3 варіанти, вибрано **C, плитки**; налаштування на табло й на телефоні) — на полотні
-автора; копії й рендери прошивки покласти в `docs/design/` на етапі 1.
+Screens are rendered on the PC from the same LVGL code into `docs/design/` (`pio test -e render`).

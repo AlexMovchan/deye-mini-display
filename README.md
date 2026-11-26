@@ -1,62 +1,90 @@
 # deye-mini-display
 
-Автономне міні-табло для гібридних інверторів **Deye** з Wi-Fi-логером **Solarman**.
-Маленький екран біля ліжка чи на кухні, що показує головне:
+A standalone mini display for **Deye** hybrid inverters with a **Solarman** Wi-Fi logger.
+A small screen for the bedside table or the kitchen that shows what matters during power outages:
 
-- **світло є / немає** (і з котрої години),
-- **заряд батареї %** і чи вона заряджається чи розряджається,
-- **споживання** квартири,
-- **тривогу** у вашій громаді (необов’язково),
-- **графік відключень** на другому екрані — Київ (за адресою) і Житомирщина (за чергою), необов’язково.
+- **grid power on / off** (and since when),
+- **battery charge %** and whether it is charging or discharging,
+- the home's **power consumption**,
+- an **air-raid alert** for your community (optional, Ukraine),
+- the **power outage schedule** on a second screen: Kyiv (by address) and Zhytomyr region (by group), optional.
 
-Без хмари Deye/Solarman, без реєстрацій і токенів: табло читає логер напряму у вашій домашній мережі
-й **нічого не записує в інвертор**.
+No Deye/Solarman cloud, no accounts, no tokens: the display reads the logger directly on your home network
+and **never writes anything to the inverter** (read-only Modbus function `0x03`).
 
-| Світло є | Тривога, світла немає | Налаштування |
+The on-device interface is in Ukrainian.
+
+| Grid on | Alert, grid off | Setup |
 | --- | --- | --- |
 | ![](docs/design/tiles_calm.png) | ![](docs/design/tiles_red_off.png) | ![](docs/design/setup_start.png) |
 
-| Графік відключень (свайп) |
-| --- |
-| ![](docs/design/map_both.png) |
+| Outage schedule (swipe) | No schedule data |
+| --- | --- |
+| ![](docs/design/map_both.png) | ![](docs/design/map_no_tomorrow.png) |
 
-> Статус: **0.2.0, перевіряється на залізі.** Деталі — [`docs/PLAN.md`](docs/PLAN.md).
+> Status: **0.2.6, running on real hardware.** Details: [`docs/PLAN.md`](docs/PLAN.md).
 
-## Що потрібно
+## What you need
 
-- Гібридний інвертор Deye (однофазний, серія SG0xLP1) з Wi-Fi-логером Solarman, що відповідає на локальному порту 8899.
-  Трифазні моделі поки не підтримуються — табло так і напише.
-- Плата **NiceMCU-32S-DEV 2.8IPS** (ESP32 + екран 2,8″ 240×320 із сенсором, USB-C).
-- Wi-Fi 2,4 ГГц у тій самій мережі, що й логер.
-- Серійний номер логера (на наклейці логера, «SN»), якщо табло не знайде логер само.
+- A Deye single-phase hybrid inverter (SG0xLP1 series) with a Solarman Wi-Fi logger answering on local port 8899.
+  Three-phase models are not supported yet — the display says so instead of showing wrong numbers.
+- A **NiceMCU-32S-DEV 2.8IPS** board (ESP32, 2.8″ 240×320 touch screen, USB-C).
+- 2.4 GHz Wi-Fi on the same network as the logger.
+- The logger serial number (the "SN" sticker on the logger), in case the display cannot find the logger by itself.
 
-## Встановлення
+## Installation
 
-Поки — через [PlatformIO](https://platformio.org/) (сторінка встановлення з браузера буде пізніше):
+### From the browser (Chrome or Edge)
+
+1. Download the files from the [latest release](https://github.com/AlexMovchan/deye-mini-display/releases/latest).
+2. Open <https://espressif.github.io/esptool-js/>, set Baudrate **460800**, press **Connect** and pick the
+   CH340 / USB Serial port.
+3. Flash one file:
+
+   | File | Address | When |
+   | --- | --- | --- |
+   | `deye-mini-display-<version>.bin` | **`0x0`** | first install — settings are **erased** |
+   | `deye-mini-display-<version>-update.bin` | **`0x10000`** | update — settings are **kept** |
+
+4. Press **Program**, wait for "Leaving…", press **Disconnect** in the browser and **RST** on the board.
+
+### With PlatformIO
 
 ```
 pio run -e board -t upload
 ```
 
-1. Після прошивки на табло з’явиться QR-код мережі **Deye-Setup** — наведіть на нього камеру телефона.
-2. Сторінка налаштування відкриється сама (або відкрийте `http://192.168.4.1`): виберіть домашній Wi-Fi,
-   введіть серійний номер логера, (за бажанням) громаду для тривог і графік відключень.
-3. «Зберегти й запустити» — табло перезапуститься й покаже дані.
+### First setup
 
-Змінити налаштування: утримувати кнопку **BOOT** 5 секунд. Журнал роботи: `http://<адреса табло>/log`.
+1. The display shows a QR code for the **Deye-Setup** Wi-Fi network — point your phone camera at it.
+2. The setup page opens by itself (or open `http://192.168.4.1`): choose your home Wi-Fi, enter the logger
+   serial number, and optionally a community for alerts and an outage schedule.
+3. Press "Зберегти й запустити" (save and start) — the display restarts and shows live data.
 
-Пароль Wi-Fi зберігається в пам’яті плати незашифрованим (як у більшості таких пристроїв).
+To change settings, hold the **BOOT** button for 5 seconds while the display is running.
+Event log: `http://<display address>/log`.
 
-## Розробка
+The Wi-Fi password is stored unencrypted in the board's flash (as in most devices of this kind).
+
+## How it works
+
+- **Inverter:** Solarman V5 over TCP 8899, polled every 30 s, one connection at a time.
+- **Alerts:** [siren.pp.ua](https://siren.pp.ua), at most one request per minute and only if a region is set.
+- **Outage schedules:** a normalizer in [`outages/`](outages/README.md) runs on GitHub Actions every 30 minutes,
+  converts each grid operator's site into one common format and publishes it on GitHub Pages. The display fetches
+  only the small file for its own group. When an operator changes its site, only the adapter changes —
+  no firmware update needed.
+
+## Development
 
 ```
-pio test -e native      # тести логіки на ПК
-pio test -e render      # рендер екранів на ПК (картинки — у теку з RENDER_DIR)
-python tools/gen_web.py # після зміни src/web/setup.html — оновити src/web_assets.h
+pio test -e native      # logic tests on the PC
+pio test -e render      # render screens on the PC (images go to the folder in RENDER_DIR)
+python tools/gen_web.py # after changing src/web/setup.html — regenerate src/web_assets.h
 ```
 
-Перевірка USB-зв’язку плати (бувають браковані): `tools/check_board.bat`.
+Some boards ship with a broken USB-UART link; check yours with `tools/check_board.bat`.
 
-## Ліцензія
+## License
 
-MIT — див. [`LICENSE`](LICENSE). Шрифт Inter — SIL OFL (`src/fonts/Inter-LICENSE.txt`).
+MIT — see [`LICENSE`](LICENSE). The Inter font is under SIL OFL (`src/fonts/Inter-LICENSE.txt`).
