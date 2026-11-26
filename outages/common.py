@@ -26,8 +26,8 @@ class ParseError(Exception):
     """Відповідь не схожа на очікувану — сайт, мабуть, змінився. Старі файли не чіпаємо."""
 
 
-def http_get(url, timeout=30):
-    req = urllib.request.Request(url, headers={"User-Agent": UA, "Accept-Encoding": "identity"})
+def http_get(url, timeout=30, ua=UA):
+    req = urllib.request.Request(url, headers={"User-Agent": ua, "Accept-Encoding": "identity"})
     with urllib.request.urlopen(req, timeout=timeout) as r:
         return r.read()
 

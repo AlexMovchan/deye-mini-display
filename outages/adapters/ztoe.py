@@ -12,6 +12,10 @@ from common import SLOTS, Day, ParseError, Schedule, http_get
 PROVIDER = "ztoe"
 NAME = "Житомирщина (Житомиробленерго)"
 URL = "https://www.ztoe.com.ua/unhooking-search.php"
+# Сайт віддає застарілу копію сторінки (без нових змін і без завтрашнього дня), якщо в User-Agent є певні слова
+# (перевірено 26.11.2026: «outages», «Python-urllib», адреса github.com) — тоді як «Mozilla/5.0 (compatible;
+# deye-mini-display)» отримує те саме, що браузер. Ознака справжньої сторінки — дві таблиці днів, коли завтра вже є.
+UA = "Mozilla/5.0 (compatible; deye-mini-display)"
 
 OFF = {"#ff3333"}
 ON = {"#ffffff", "white", "#fff"}
@@ -60,4 +64,4 @@ def parse(body):
 
 
 def fetch():
-    return parse(http_get(URL))
+    return parse(http_get(URL, ua=UA))
