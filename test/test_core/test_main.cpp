@@ -363,6 +363,11 @@ static void test_outage_map() {
   TEST_ASSERT_EQUAL_STRING("15:00–20:00", m.rows[2].text);
   TEST_ASSERT_EQUAL_STRING("20:00–24:00", m.rows[3].text);
   TEST_ASSERT_EQUAL_STRING("зараз · ще 2 г 45 хв", m.rows[0].note);
+  TEST_ASSERT_TRUE(m.bar.show);
+  TEST_ASSERT_FALSE(m.bar.light);
+  TEST_ASSERT_EQUAL_STRING("06:00", m.bar.from);
+  TEST_ASSERT_EQUAL_STRING("10:00", m.bar.to);
+  TEST_ASSERT_FLOAT_WITHIN(0.001f, 75.0f / 240, m.bar.frac);
   TEST_ASSERT_FALSE(m.rows[1].current);
   TEST_ASSERT_EQUAL_STRING("5 год", m.rows[1].note);
   TEST_ASSERT_EQUAL_STRING("", m.rows[3].note);
@@ -381,9 +386,14 @@ static void test_outage_map() {
   TEST_ASSERT_EQUAL_STRING("завтра", m.rows[2].note);
   m = outage::buildMap(&s2, "47.1", kyiv(26, 22, 50), tiles::color::FRAME_CALM, 12 * 3600);
   TEST_ASSERT_EQUAL_STRING("зараз · ще 5 г 10 хв", m.rows[0].note);
+  TEST_ASSERT_EQUAL_STRING("20:00", m.bar.from);  // через північ
+  TEST_ASSERT_EQUAL_STRING("04:00", m.bar.to);
+  TEST_ASSERT_FLOAT_WITHIN(0.001f, 170.0f / 480, m.bar.frac);
   // екстрені; немає даних (немає графіка, застарілий, наступний день без графіка)
   s2.days[0].status = outage::Status::Emergency;
   TEST_ASSERT_EQUAL(outage::MapKind::Emergency, outage::buildMap(&s2, "47.1", kyiv(26, 12, 0), 0, 12 * 3600).kind);
+  TEST_ASSERT_FALSE(outage::buildMap(&s2, "47.1", kyiv(26, 12, 0), 0, 12 * 3600).bar.show);
+  TEST_ASSERT_FALSE(outage::buildMap(nullptr, "3.2", kyiv(26, 12, 0), 0, 12 * 3600).bar.show);
   TEST_ASSERT_EQUAL(outage::MapKind::NoData, outage::buildMap(nullptr, "3.2", kyiv(26, 12, 0), 0, 12 * 3600).kind);
   TEST_ASSERT_EQUAL(outage::MapKind::NoData, outage::buildMap(&s, "47.1", kyiv(27, 10, 0), 0, 48 * 3600).kind);
   TEST_ASSERT_EQUAL(outage::MapKind::NoData, outage::buildMap(&s, "47.1", kyiv(28, 10, 0), 0, 12 * 3600).kind);

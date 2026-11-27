@@ -158,6 +158,26 @@ static void test_render_map() {
   ui::showMap(outage::buildMap(nullptr, "47.1", kyiv(26, 21, 10), tiles::color::FRAME_CALM, 48 * 3600), tiles::Wifi::Off);
   save("map_no_tomorrow");
   memLog("map2");
+  // смужка поточного проміжку внизу основного екрана
+  s.days[1].status = outage::Status::Applies;
+  tiles::Input in = calm();
+  in.now = kyiv(26, 11, 20);
+  ui::showTiles(tiles::build(in), outage::buildMap(&s, "47.1", in.now, tiles::color::FRAME_CALM, 48 * 3600).bar);
+  save("tiles_bar_on");
+  in.grid = inv::Grid::Off;
+  in.gridSince = kyiv(26, 15, 0);
+  in.reading.soc = 38;
+  in.reading.battW = 410;
+  in.reading.loadW = 410;
+  in.hoursLeft = 2 + 10 / 60.0f;
+  in.alert.active = true;
+  in.alert.red = true;
+  strcpy(in.alert.head, "Повітряна тривога");
+  strcpy(in.alert.since, "15:41");
+  in.now = kyiv(26, 16, 40);
+  ui::showTiles(tiles::build(in), outage::buildMap(&s, "47.1", in.now, tiles::color::FRAME_RED, 48 * 3600).bar);
+  save("tiles_bar_off_alert");
+  memLog("tiles_bar");
   ui::showTiles(tiles::build(calm()));
   save("tiles_after_map");
   memLog("tiles_after_map");

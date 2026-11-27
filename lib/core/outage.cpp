@@ -113,10 +113,10 @@ MapModel buildMap(const Schedule* s, const char* group, int64_t now, tiles::Rgb 
     int end = start;
     while (end < 96 && t[end] == t[start]) end++;
     Row& r = m.rows[m.count++];
-    char a[6], b[6];
+    char a[6], b_[6];
     hhmm(a, sizeof a, start);
-    hhmm(b, sizeof b, end);
-    snprintf(r.text, sizeof r.text, "%s–%s", a, b);
+    hhmm(b_, sizeof b_, end);
+    snprintf(r.text, sizeof r.text, "%s–%s", a, b_);
     r.light = t[start] == 0;
     r.tomorrow = start >= 48;
     r.current = start <= cur;
@@ -128,6 +128,15 @@ MapModel buildMap(const Schedule* s, const char* group, int64_t now, tiles::Rgb 
     if (r.current) snprintf(r.note, sizeof r.note, "зараз%s%s", *d ? " · ще " : "", d);
     else if (r.tomorrow) snprintf(r.note, sizeof r.note, "завтра%s%s", sep, d);
     else snprintf(r.note, sizeof r.note, "%s", d);
+    if (r.current) {
+      Bar& b = m.bar;
+      b.show = true;
+      b.light = r.light;
+      snprintf(b.from, sizeof b.from, "%s", a);
+      snprintf(b.to, sizeof b.to, "%s", b_);
+      int nowMin = l.hour * 60 + l.minute;
+      b.frac = (float)(nowMin - start * 30) / ((end - start) * 30);
+    }
     start = end;
   }
   m.kind = MapKind::Rows;

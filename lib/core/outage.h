@@ -43,6 +43,15 @@ struct Row {
   char note[40] = "";    // «зараз · ще 9 г 50 хв» / «завтра · 2 год» / «3 год» (макет A, 27.11.2026)
 };
 
+// Смужка внизу основного екрана (27.11.2026): поточний проміжок на всю ширину, зліва початок, справа кінець,
+// курсор — де ми зараз. Біла — світло є, червона — немає. Немає графіка чи він не діє — смужки немає.
+struct Bar {
+  bool show = false;
+  bool light = false;
+  char from[6] = "", to[6] = "";
+  float frac = 0;  // 0..1 — скільки проміжку минуло
+};
+
 enum class MapKind : uint8_t { Rows, Emergency, NoData };
 
 struct MapModel {
@@ -52,6 +61,7 @@ struct MapModel {
   MapKind kind = MapKind::NoData;
   Row rows[ROWS];
   int count = 0;
+  Bar bar;  // поточний проміжок (rows[0]) для основного екрана
 };
 
 // staleAfter — скільки секунд графік ще годиться (далі — «Даних немає»).

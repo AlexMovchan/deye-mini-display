@@ -18,7 +18,7 @@ struct SetupView {
 
 void begin();                           // після board::begin() (на ПК — після lv_init і дисплея)
 void memoryStats(unsigned* usedKb, unsigned* totalKb);  // запас LVGL — для журналу
-void showTiles(const tiles::Model& m);  // оновити й показати основний екран
+void showTiles(const tiles::Model& m, const outage::Bar& bar = outage::Bar());  // оновити й показати основний екран
 void showSetup(const SetupView& v);     // оновити й показати екран налаштування
 void showMap(const outage::MapModel& m, tiles::Wifi wifi);  // екран 2: графік відключень по годинах
 

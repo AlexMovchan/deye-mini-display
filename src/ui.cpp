@@ -142,7 +142,13 @@ struct MainUi {
   WifiUi wifi;
   TileUi t[4];
   lv_obj_t *msgBox, *msgTitle, *msgText;
+  // смужка поточного проміжку внизу (27.11.2026); з нею плитки нижчі на TOP_H + GAP
+  lv_obj_t *bar, *barPast, *barCursor, *barFrom, *barTo;
+  bool compact;
 } S;
+
+constexpr int TILE_H_COMPACT = TILE_H - (TOP_H + GAP) / 2;  // 113
+constexpr int BAR_IN = 240 - 2 * M - 4;                     // ширина смужки всередині обвідки
 
 void createTile(TileUi& u, int x, int y) {
   u.box = box(S.scr, x, y, TILE_W, TILE_H, col::CARD, 10);
@@ -201,7 +207,8 @@ void applyTile(TileUi& u, const tiles::Tile& t) {
   }
   setText(u.sub, t.sub, t.subColor);
   // Текст під смужкою або під значенням
-  lv_obj_set_y(u.sub, t.bar ? 107 : 96);
+  if (S.compact) lv_obj_set_y(u.sub, t.bar ? 88 : digits ? 76 : 84);
+  else lv_obj_set_y(u.sub, t.bar ? 107 : 96);
 }
 
 void createMain() {
@@ -223,6 +230,22 @@ void createMain() {
   createWifi(S.wifi, S.topBox);
   int xs[2] = {M, M + TILE_W + GAP}, ys[2] = {TILE_Y0, TILE_Y0 + TILE_H + GAP};
   for (int i = 0; i < 4; i++) createTile(S.t[i], xs[i % 2], ys[i / 2]);
+  S.bar = box(S.scr, M, 320 - M - TOP_H, 240 - 2 * M, TOP_H, col::CARD_LIGHT, 8);
+  lv_obj_set_style_border_width(S.bar, 2, 0);
+  lv_obj_set_style_clip_corner(S.bar, true, 0);
+  S.barPast = box(S.bar, 0, 0, 1, TOP_H - 4, 0x000000, 0);
+  lv_obj_set_style_bg_opa(S.barPast, 36, 0);  // ≈14 % — пройдена частина ледь темніша
+  S.barCursor = box(S.bar, 0, 3, 3, TOP_H - 10, col::TEXT_DARK, 2);
+  S.barFrom = label(S.bar, &inter_14_semi, col::TEXT_DARK);
+  lv_obj_set_x(S.barFrom, 6);
+  baseline(S.barFrom, 18);
+  S.barTo = label(S.bar, &inter_14_semi, col::TEXT_DARK);
+  lv_obj_set_width(S.barTo, 50);
+  lv_obj_set_style_text_align(S.barTo, LV_TEXT_ALIGN_RIGHT, 0);
+  lv_obj_set_x(S.barTo, BAR_IN - 6 - 50);
+  baseline(S.barTo, 18);
+  lv_obj_add_flag(S.bar, LV_OBJ_FLAG_HIDDEN);
+  S.compact = false;
   S.msgBox = box(S.scr, M, TILE_Y0, 240 - 2 * M, 320 - M - TILE_Y0, col::CARD, 10);
   S.msgTitle = wrapLabel(S.msgBox, &inter_18_semi, col::TEXT, 240 - 2 * M - 28);
   lv_obj_set_pos(S.msgTitle, 14, 20);
@@ -397,11 +420,48 @@ void loadScreen(lv_obj_t* scr) {
   }
 }
 
-void showTiles(const tiles::Model& m) {
+// Плитки повної висоти або нижчі (коли внизу смужка проміжку): розміри й вертикаль вмісту
+void layoutTiles(bool compact) {
+  if (S.compact == compact) return;
+  S.compact = compact;
+  int h = compact ? TILE_H_COMPACT : TILE_H;
+  for (int i = 0; i < 4; i++) {
+    TileUi& u = S.t[i];
+    lv_obj_set_height(u.box, h);
+    lv_obj_set_y(u.box, i / 2 ? TILE_Y0 + h + GAP : TILE_Y0);
+    baseline(u.title, compact ? 21 : 23);
+    for (lv_obj_t* o : {u.boltBg, u.bolt, u.slash}) lv_obj_set_y(o, compact ? 28 : 34);
+    baseline(u.big, compact ? 68 : 84);
+    baseline(u.unit, compact ? 68 : 84);
+    baseline(u.text, compact ? 76 : 84);
+    lv_obj_set_y(u.bar, compact ? 76 : 96);
+  }
+}
+
+void showBar(const outage::Bar& b, Rgb frame) {
+  Rgb bg = b.light ? col::CARD_LIGHT : col::FRAME_RED;
+  Rgb fg = b.light ? col::TEXT_DARK : 0xFFFFFF;
+  lv_obj_set_style_bg_color(S.bar, c(bg), 0);
+  // червона смужка на червоній рамці тривоги — з білою обвідкою, інакше зливається
+  lv_obj_set_style_border_color(S.bar, c(!b.light && frame == col::FRAME_RED ? col::CARD_LIGHT : bg), 0);
+  float f = b.frac < 0 ? 0 : b.frac > 1 ? 1 : b.frac;
+  int x = (int)((BAR_IN - 3) * f + 0.5f);
+  lv_obj_set_width(S.barPast, x + 1);
+  lv_obj_set_x(S.barCursor, x);
+  lv_obj_set_style_bg_color(S.barCursor, c(fg), 0);
+  setText(S.barFrom, b.from, fg);
+  setText(S.barTo, b.to, fg);
+}
+
+void showTiles(const tiles::Model& m, const outage::Bar& bar) {
   if (!S.scr) {
     dropScreen(G);
     createMain();
   }
+  bool withBar = bar.show && !m.message;
+  layoutTiles(withBar);
+  show(S.bar, withBar);
+  if (withBar) showBar(bar, m.frame);
   lv_obj_set_style_bg_color(S.scr, c(m.frame), 0);
   // Довга назва тривоги («Дронова небезпека · з 10:02») — дрібнішим шрифтом, щоб влізла поруч із годинником
   constexpr int TOP_W = 240 - 2 * M - 26 - 44 - 22;  // ширина мітки (до розкладки LVGL get_width ще 0)

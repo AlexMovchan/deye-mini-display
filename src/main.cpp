@@ -181,15 +181,17 @@ void loop() {
       lastUi = millis();
       wasMap = mapShown;
       tiles::Model m = tiles::build(monitor::snapshot());
+      // Графік потрібен обом екранам: другому — рядки, основному — смужка поточного проміжку внизу
+      static outage::Schedule sch;  // ~200 Б, не на стеку циклу
+      String group;
+      bool hasGroup = monitor::outageSnapshot(&sch, &group);
+      static outage::MapModel map;  // ~400 Б
+      map = outage::buildMap(sch.valid ? &sch : nullptr, group.c_str(), net::timeValid() ? net::now() : 0, m.frame,
+                             OUTAGE_STALE_HOURS * 3600);
       if (mapShown) {
-        static outage::Schedule sch;  // ~200 Б, не на стеку циклу
-        String group;
-        monitor::outageSnapshot(&sch, &group);
-        ui::showMap(outage::buildMap(sch.valid ? &sch : nullptr, group.c_str(), net::timeValid() ? net::now() : 0,
-                                     m.frame, OUTAGE_STALE_HOURS * 3600),
-                    m.wifi);
+        ui::showMap(map, m.wifi);
       } else {
-        ui::showTiles(m);
+        ui::showTiles(m, hasGroup ? map.bar : outage::Bar());
       }
       static int lastBl = -1;
       int bl = brightness();
