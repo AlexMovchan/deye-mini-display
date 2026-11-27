@@ -305,8 +305,12 @@ void handleSave() {
   ok();
 }
 
+bool erased = false;
+
 void handleReset() {
   settings::erase();
+  cfg = settings::Config();  // і в пам'яті — щоб «Зберегти» до перезапуску не записало старе назад
+  erased = true;
   evlog::add("Налаштування стерто, перезапуск");
   restartAt = millis() + 1500;
   ok();
@@ -460,7 +464,7 @@ ui::SetupView view() {
     v.outage.state = cfg.regionId.length() ? ui::Step::Active : ui::Step::Pending;
     snprintf(v.outage.text, sizeof v.outage.text, "Графік (необов’язково)");
   }
-  if (restartAt) snprintf(v.note, sizeof v.note, "Збережено, перезапускаюсь…");
+  if (restartAt) snprintf(v.note, sizeof v.note, erased ? "Усе стерто, перезапускаюсь…" : "Збережено, перезапускаюсь…");
   else if (logState == LogState::NotFound)
     snprintf(v.note, sizeof v.note, "Перевірте серійник і що логер у тій самій мережі Wi-Fi");
   else snprintf(v.note, sizeof v.note, "Стерти все й почати з нуля — утримуйте BOOT 5 с");

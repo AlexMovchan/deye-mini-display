@@ -127,11 +127,18 @@ a{color:var(--muted)}
     <p></p>
     <button type="button" id="save">Зберегти й запустити</button>
     <p id="saveMsg" class="mute"></p>
-    <div class="box"><b>Змінити налаштування згодом</b><span class="mute">Утримуйте кнопку BOOT на табло 5 секунд — знову з’явиться мережа Deye-Setup.</span></div>
+    <div class="box"><b>Змінити налаштування згодом</b><span class="mute">Утримуйте кнопку BOOT на табло 5 секунд — знову з’явиться мережа Deye-Setup. Щоб стерти все, у режимі налаштування відпустіть BOOT і утримайте ще 5 секунд.</span></div>
   </section>
 
   <p class="hide" id="backP"><button type="button" class="ghost" id="back">← Назад</button></p>
   <p class="mute" style="text-align:center"><a href="#" id="reset">Скинути все</a> · <span id="fw"></span></p>
+  <div class="box hide" id="resetBox">
+    <b>Стерти всі налаштування?</b>
+    <span class="mute">Wi-Fi, логер, тривоги й графік. Табло перезапуститься як нове.</span>
+    <p><button type="button" id="resetYes">Так, стерти все</button></p>
+    <button type="button" class="ghost" id="resetNo">Скасувати</button>
+    <p id="resetMsg" class="mute"></p>
+  </div>
 </main>
 <script>
 const $ = (id) => document.getElementById(id);
@@ -416,9 +423,23 @@ $('save').onclick = async () => {
   try { await post('/api/save'); $('saveMsg').textContent = 'Збережено. Табло перезапускається, мережа Deye-Setup зникне.'; $('save').disabled = true; }
   catch (e) { $('saveMsg').textContent = 'Не все налаштовано: потрібні Wi-Fi і знайдений логер.'; }
 };
-$('reset').onclick = async (e) => {
+// Підтвердження — на сторінці: вбудований браузер точки доступу (captive portal) часто мовчки блокує confirm()/alert()
+$('reset').onclick = (e) => {
   e.preventDefault();
-  if (confirm('Стерти всі налаштування табло?')) { await post('/api/reset'); alert('Стерто. Табло перезапускається.'); }
+  $('resetBox').classList.remove('hide');
+  $('resetMsg').textContent = '';
+  $('resetBox').scrollIntoView({behavior: 'smooth'});
+};
+$('resetNo').onclick = () => $('resetBox').classList.add('hide');
+$('resetYes').onclick = async () => {
+  $('resetYes').disabled = true;
+  try {
+    await post('/api/reset');
+    $('resetMsg').innerHTML = '<span class="ok">Стерто. Табло перезапускається — за хвилину знову з’явиться мережа Deye-Setup.</span>';
+  } catch (e) {
+    $('resetYes').disabled = false;
+    $('resetMsg').innerHTML = '<span class="err">Табло не відповіло. Спробуйте ще раз або утримайте BOOT 5 секунд у режимі налаштування.</span>';
+  }
 };
 
 function esc(s) { return String(s).replace(/[&<>"']/g, (c) => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c])); }
