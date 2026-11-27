@@ -23,7 +23,7 @@ The on-device interface is in Ukrainian.
 | --- | --- |
 | ![](docs/design/map_both.png) | ![](docs/design/map_no_tomorrow.png) |
 
-> Status: **0.2.8, running on real hardware.** Details: [`docs/PLAN.md`](docs/PLAN.md).
+> Status: **0.2.9, running on real hardware.** Details: [`docs/PLAN.md`](docs/PLAN.md).
 
 ## What you need
 
