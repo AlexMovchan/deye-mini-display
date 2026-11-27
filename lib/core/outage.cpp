@@ -143,4 +143,22 @@ MapModel buildMap(const Schedule* s, const char* group, int64_t now, tiles::Rgb 
   return m;
 }
 
+Bar statusBar(const MapModel& m, Fetch f) {
+  if (m.bar.show) return m.bar;
+  Bar b;
+  b.show = b.message = true;
+  b.light = true;  // нейтральна (не червона), крім екстрених
+  const char* t = "Даних немає";
+  if (m.kind == MapKind::Emergency) {
+    t = "Екстрені відключення";
+    b.light = false;
+  } else if (f == Fetch::Pending) {
+    t = "Завантаження графіка…";
+  } else if (f == Fetch::Failed) {
+    t = "Помилка запиту графіка";
+  }
+  snprintf(b.text, sizeof b.text, "%s", t);
+  return b;
+}
+
 }  // namespace outage

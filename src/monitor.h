@@ -10,6 +10,6 @@ namespace monitor {
 void begin(const settings::Config& cfg);
 tiles::Input snapshot();  // для tiles::build()
 // Графік відключень: false — не налаштований. group — поточна черга (Київ може змінитися за адресою).
-bool outageSnapshot(outage::Schedule* out, String* group);
+bool outageSnapshot(outage::Schedule* out, String* group, outage::Fetch* fetch = nullptr);
 
 }  // namespace monitor

@@ -48,6 +48,8 @@ struct Row {
 struct Bar {
   bool show = false;
   bool light = false;
+  bool message = false;  // замість проміжку — напис по центру (смужка зарезервована, щоб плитки не стрибали)
+  char text[64] = "";
   char from[6] = "", to[6] = "";
   float frac = 0;  // 0..1 — скільки проміжку минуло
 };
@@ -66,5 +68,12 @@ struct MapModel {
 
 // staleAfter — скільки секунд графік ще годиться (далі — «Даних немає»).
 MapModel buildMap(const Schedule* s, const char* group, int64_t now, tiles::Rgb frame, int staleAfter);
+
+// Стан запиту графіка з GitHub Pages: ще жодної відповіді / остання вдала / остання з помилкою
+enum class Fetch : uint8_t { Pending, Ok, Failed };
+
+// Смужка для основного екрана, коли графік налаштовано: поточний проміжок, а якщо його немає — напис
+// «Завантаження графіка…», «Помилка запиту графіка», «Екстрені відключення» чи «Даних немає».
+Bar statusBar(const MapModel& m, Fetch f);
 
 }  // namespace outage

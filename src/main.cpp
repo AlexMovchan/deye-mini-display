@@ -184,14 +184,16 @@ void loop() {
       // Графік потрібен обом екранам: другому — рядки, основному — смужка поточного проміжку внизу
       static outage::Schedule sch;  // ~200 Б, не на стеку циклу
       String group;
-      bool hasGroup = monitor::outageSnapshot(&sch, &group);
+      outage::Fetch fetch = outage::Fetch::Pending;
+      bool hasGroup = monitor::outageSnapshot(&sch, &group, &fetch);
       static outage::MapModel map;  // ~400 Б
       map = outage::buildMap(sch.valid ? &sch : nullptr, group.c_str(), net::timeValid() ? net::now() : 0, m.frame,
                              OUTAGE_STALE_HOURS * 3600);
       if (mapShown) {
         ui::showMap(map, m.wifi);
       } else {
-        ui::showTiles(m, hasGroup ? map.bar : outage::Bar());
+        // графік налаштовано — смужка завжди на місці (без стрибка плиток), до відповіді — з написом
+        ui::showTiles(m, hasGroup ? outage::statusBar(map, fetch) : outage::Bar());
       }
       static int lastBl = -1;
       int bl = brightness();

@@ -178,6 +178,11 @@ static void test_render_map() {
   ui::showTiles(tiles::build(in), outage::buildMap(&s, "47.1", in.now, tiles::color::FRAME_RED, 48 * 3600).bar);
   save("tiles_bar_off_alert");
   memLog("tiles_bar");
+  outage::MapModel none = outage::buildMap(nullptr, "47.1", kyiv(26, 11, 20), tiles::color::FRAME_CALM, 48 * 3600);
+  ui::showTiles(tiles::build(calm()), outage::statusBar(none, outage::Fetch::Pending));
+  save("tiles_bar_loading");
+  ui::showTiles(tiles::build(calm()), outage::statusBar(none, outage::Fetch::Failed));
+  save("tiles_bar_error");
   ui::showTiles(tiles::build(calm()));
   save("tiles_after_map");
   memLog("tiles_after_map");

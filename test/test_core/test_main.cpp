@@ -394,6 +394,15 @@ static void test_outage_map() {
   TEST_ASSERT_EQUAL(outage::MapKind::Emergency, outage::buildMap(&s2, "47.1", kyiv(26, 12, 0), 0, 12 * 3600).kind);
   TEST_ASSERT_FALSE(outage::buildMap(&s2, "47.1", kyiv(26, 12, 0), 0, 12 * 3600).bar.show);
   TEST_ASSERT_FALSE(outage::buildMap(nullptr, "3.2", kyiv(26, 12, 0), 0, 12 * 3600).bar.show);
+  // зарезервована смужка: напис замість проміжку
+  outage::Bar b = outage::statusBar(outage::buildMap(&s2, "47.1", kyiv(26, 12, 0), 0, 12 * 3600), outage::Fetch::Ok);
+  TEST_ASSERT_TRUE(b.show && b.message && !b.light);
+  TEST_ASSERT_EQUAL_STRING("Екстрені відключення", b.text);
+  outage::MapModel none = outage::buildMap(nullptr, "3.2", kyiv(26, 12, 0), 0, 12 * 3600);
+  TEST_ASSERT_EQUAL_STRING("Завантаження графіка…", outage::statusBar(none, outage::Fetch::Pending).text);
+  TEST_ASSERT_EQUAL_STRING("Помилка запиту графіка", outage::statusBar(none, outage::Fetch::Failed).text);
+  TEST_ASSERT_EQUAL_STRING("Даних немає", outage::statusBar(none, outage::Fetch::Ok).text);
+  TEST_ASSERT_FALSE(outage::statusBar(m, outage::Fetch::Failed).message);  // проміжок є — показуємо його
   TEST_ASSERT_EQUAL(outage::MapKind::NoData, outage::buildMap(nullptr, "3.2", kyiv(26, 12, 0), 0, 12 * 3600).kind);
   TEST_ASSERT_EQUAL(outage::MapKind::NoData, outage::buildMap(&s, "47.1", kyiv(27, 10, 0), 0, 48 * 3600).kind);
   TEST_ASSERT_EQUAL(outage::MapKind::NoData, outage::buildMap(&s, "47.1", kyiv(28, 10, 0), 0, 12 * 3600).kind);

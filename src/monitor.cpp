@@ -37,6 +37,7 @@ struct Shared {
   bool alertFailed = false;
   siren::Alert alert;
   outage::Schedule sched;  // останній вдалий графік
+  bool outFailed = false;  // останній запит графіка не вдався
   String outGroup;
 } S;
 
@@ -171,6 +172,8 @@ void pollOutage() {
     if (!failed) evlog::add("Графік: не отримано (%d), повтор за %d хв", res.status, OUTAGE_RETRY_MINUTES);
     failed = true;
     outageInterval = OUTAGE_RETRY_MINUTES * 60000UL;
+    Lock l;
+    S.outFailed = true;
     return;
   }
   if (failed) evlog::add("Графік: знову отримано");
@@ -179,6 +182,7 @@ void pollOutage() {
   netOk();
   Lock l;
   S.sched = sch;
+  S.outFailed = false;
 }
 
 // Київ: раз на добу — чи не перенесли будинок в іншу чергу
@@ -325,11 +329,12 @@ tiles::Input snapshot() {
   return in;
 }
 
-bool outageSnapshot(outage::Schedule* out, String* group) {
+bool outageSnapshot(outage::Schedule* out, String* group, outage::Fetch* fetch) {
   if (!cfg.outProvider.length()) return false;
   Lock l;
   *out = S.sched;
   *group = S.outGroup;
+  if (fetch) *fetch = S.outFailed ? outage::Fetch::Failed : S.sched.valid ? outage::Fetch::Ok : outage::Fetch::Pending;
   return true;
 }
 

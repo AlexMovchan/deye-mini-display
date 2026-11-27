@@ -143,7 +143,7 @@ struct MainUi {
   TileUi t[4];
   lv_obj_t *msgBox, *msgTitle, *msgText;
   // смужка поточного проміжку внизу (27.11.2026); з нею плитки нижчі на TOP_H + GAP
-  lv_obj_t *bar, *barPast, *barCursor, *barFrom, *barTo;
+  lv_obj_t *bar, *barPast, *barCursor, *barFrom, *barTo, *barMsg;
   bool compact;
 } S;
 
@@ -244,6 +244,10 @@ void createMain() {
   lv_obj_set_style_text_align(S.barTo, LV_TEXT_ALIGN_RIGHT, 0);
   lv_obj_set_x(S.barTo, BAR_IN - 6 - 50);
   baseline(S.barTo, 18);
+  S.barMsg = label(S.bar, &inter_12_semi, col::MUTED);
+  lv_obj_set_width(S.barMsg, BAR_IN);
+  lv_obj_set_style_text_align(S.barMsg, LV_TEXT_ALIGN_CENTER, 0);
+  baseline(S.barMsg, 17);
   lv_obj_add_flag(S.bar, LV_OBJ_FLAG_HIDDEN);
   S.compact = false;
   S.msgBox = box(S.scr, M, TILE_Y0, 240 - 2 * M, 320 - M - TILE_Y0, col::CARD, 10);
@@ -439,6 +443,16 @@ void layoutTiles(bool compact) {
 }
 
 void showBar(const outage::Bar& b, Rgb frame) {
+  for (lv_obj_t* o : {S.barPast, S.barCursor, S.barFrom, S.barTo}) show(o, !b.message);
+  show(S.barMsg, b.message);
+  if (b.message) {
+    // напис: нейтральна смужка як рядок згори; екстрені — червона
+    Rgb bg = b.light ? col::CARD : col::FRAME_RED;
+    lv_obj_set_style_bg_color(S.bar, c(bg), 0);
+    lv_obj_set_style_border_color(S.bar, c(b.light ? col::CARD_EDGE : frame == col::FRAME_RED ? col::CARD_LIGHT : bg), 0);
+    setText(S.barMsg, b.text, b.light ? col::MUTED : 0xFFFFFF);
+    return;
+  }
   Rgb bg = b.light ? col::CARD_LIGHT : col::FRAME_RED;
   Rgb fg = b.light ? col::TEXT_DARK : 0xFFFFFF;
   lv_obj_set_style_bg_color(S.bar, c(bg), 0);
