@@ -232,7 +232,8 @@ void createMain() {
 
 // ── Екран 2: графік відключень — макет A (рішення власника 27.11.2026) ──
 // Рядок згори як на основному екрані (черга, Wi-Fi, час), під ним до 4 блоків-проміжків від поточного:
-// світло є — сіра картка з жовтою блискавкою, немає — темно-червона з перекресленою; поточний обведено білим.
+// світло є — світла картка (як плитка «Світло» на основному екрані) з жовтою блискавкою в темній обвідці,
+// немає — темно-червона з перекресленою; поточний обведено жовтим (на світлій) або білим (на червоній).
 // У блоці — «14:00–18:00» і підпис «зараз · ще 2 г 45 хв» / «завтра · 2 год». Замість блоків — «Екстрені
 // відключення» або «Даних немає».
 constexpr Rgb OFF_BG = 0x3B1218, OFF_EDGE = 0x7A2530;
@@ -244,7 +245,7 @@ const lv_point_precise_t BOLT_S[] = {{11, 0}, {1, 11}, {8, 11}, {7, 18}, {15, 7}
 const lv_point_precise_t SLASH_S[] = {{0, 1}, {15, 19}};
 
 struct BlockUi {
-  lv_obj_t *box, *bolt, *slash, *time, *note;
+  lv_obj_t *box, *boltBg, *bolt, *slash, *time, *note;
 };
 
 struct MapUi {
@@ -274,9 +275,10 @@ void createMap() {
     BlockUi& u = G.b[k];
     u.box = box(G.scr, M, BLK_Y0 + k * (BLK_H + GAP), BLK_W, BLK_H, col::CARD, 10);
     lv_obj_set_style_border_width(u.box, 2, 0);
+    u.boltBg = line(u.box, BOLT_S, 7, 4, col::TEXT_DARK);
     u.bolt = line(u.box, BOLT_S, 7, 2, col::BOLT);
     u.slash = line(u.box, SLASH_S, 2, 2, col::ALERT_RED);
-    for (lv_obj_t* o : {u.bolt, u.slash}) lv_obj_set_pos(o, 10, (BLK_H - 4 - 19) / 2);
+    for (lv_obj_t* o : {u.boltBg, u.bolt, u.slash}) lv_obj_set_pos(o, 10, (BLK_H - 4 - 19) / 2);
     u.time = label(u.box, &inter_18_semi, col::TEXT);
     lv_obj_set_x(u.time, 36);
     baseline(u.time, 26);
@@ -443,12 +445,14 @@ void showMap(const outage::MapModel& m, tiles::Wifi wifi) {
     show(u.box, on);
     if (!on) continue;
     const outage::Row& r = m.rows[k];
-    lv_obj_set_style_bg_color(u.box, c(r.light ? col::CARD : OFF_BG), 0);
-    lv_obj_set_style_border_color(u.box, c(r.current ? col::TEXT : r.light ? col::CARD_EDGE : OFF_EDGE), 0);
+    lv_obj_set_style_bg_color(u.box, c(r.light ? col::CARD_LIGHT : OFF_BG), 0);
+    Rgb edge = r.light ? (r.current ? col::BOLT : col::CARD_LIGHT) : (r.current ? col::TEXT : OFF_EDGE);
+    lv_obj_set_style_border_color(u.box, c(edge), 0);
     lv_obj_set_style_line_color(u.bolt, c(r.light ? col::BOLT : col::ALERT_RED), 0);
+    show(u.boltBg, r.light);
     show(u.slash, !r.light);
-    setText(u.time, r.text, r.light ? col::TEXT : col::ALERT_RED);
-    setText(u.note, r.note, col::MUTED);
+    setText(u.time, r.text, r.light ? col::TEXT_DARK : col::ALERT_RED);
+    setText(u.note, r.note, r.light ? col::TEXT_DARK2 : col::MUTED);
     // без підпису — час по центру блока
     show(u.note, r.note[0] != 0);
     baseline(u.time, r.note[0] ? 26 : 36);
