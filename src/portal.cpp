@@ -186,6 +186,14 @@ void handleWifi() {
   ok();
 }
 
+void startSearch() {
+  logState = LogState::Searching;
+  logDone = logTotal = 0;
+  logCancel = false;
+  logType = logSoc = -1;
+  xTaskCreate(searchTask, "search", 8192, nullptr, 1, &logTask);
+}
+
 void handleLogger() {
   if (wifiState != WifiState::Ok) {
     server.send(409, "text/plain", "wifi");
@@ -203,11 +211,7 @@ void handleLogger() {
   }
   if (v != cfg.loggerSn) cfg.loggerIp = 0;  // інший логер — стара адреса не підходить
   cfg.loggerSn = v;
-  logState = LogState::Searching;
-  logDone = logTotal = 0;
-  logCancel = false;
-  logType = logSoc = -1;
-  xTaskCreate(searchTask, "search", 8192, nullptr, 1, &logTask);
+  startSearch();
   ok();
 }
 
@@ -384,6 +388,9 @@ void loop() {
     if (WiFi.status() == WL_CONNECTED) {
       wifiState = WifiState::Ok;
       evlog::add("Налаштування: Wi-Fi є, %s", WiFi.localIP().toString().c_str());
+      // Логер уже збережений (вхід через BOOT) — одразу перевіряємо його (спершу за збереженою адресою, це швидко),
+      // щоб і на табло, і на сторінці була справжня галочка, а не лише «Далі» зі старими даними
+      if (cfg.loggerSn && logState == LogState::Idle) startSearch();
     } else if (millis() - wifiStarted > 20000) {
       wifiState = WifiState::Fail;
       evlog::add("Налаштування: Wi-Fi не під'єднався (status %d)", (int)WiFi.status());
@@ -456,7 +463,7 @@ ui::SetupView view() {
   if (restartAt) snprintf(v.note, sizeof v.note, "Збережено, перезапускаюсь…");
   else if (logState == LogState::NotFound)
     snprintf(v.note, sizeof v.note, "Перевірте серійник і що логер у тій самій мережі Wi-Fi");
-  else snprintf(v.note, sizeof v.note, "Скинути налаштування — утримуйте BOOT 5 с");
+  else snprintf(v.note, sizeof v.note, "Стерти все й почати з нуля — утримуйте BOOT 5 с");
   return v;
 }
 

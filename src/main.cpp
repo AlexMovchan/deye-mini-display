@@ -40,13 +40,29 @@ void enterSetupAfterRestart() {
   ESP.restart();
 }
 
-// BOOT (GPIO0) утримано SETUP_HOLD_MS → режим налаштування
+// BOOT (GPIO0) утримано SETUP_HOLD_MS → режим налаштування (збережене лишається — можна змінити одне поле).
+// Уже в режимі налаштування ще раз утримати BOOT → стерти все й почати з нуля (як нове табло, 27.11.2026).
 void handleButton() {
   static uint32_t downSince = 0;
+  static bool fired = false;
+  static bool released = false;  // кнопку вже відпускали після старту: якщо BOOT ще тримають після входу
+                                 // в налаштування, це не має стерти все
   if (digitalRead(SETUP_BUTTON_PIN) == LOW) {
     if (!downSince) downSince = millis();
-    if (!setupMode && millis() - downSince > SETUP_HOLD_MS) enterSetupAfterRestart();
+    if (released && !fired && millis() - downSince > SETUP_HOLD_MS) {
+      fired = true;
+      if (!setupMode) {
+        enterSetupAfterRestart();
+      } else {
+        settings::erase();
+        evlog::add("BOOT утримано в режимі налаштування — усе стерто, перезапуск");
+        delay(200);
+        ESP.restart();
+      }
+    }
   } else {
+    released = true;
+    fired = false;
     downSince = 0;
   }
 }

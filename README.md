@@ -62,7 +62,12 @@ pio run -e board -t upload
    serial number, and optionally a community for alerts and an outage schedule.
 3. Press "Зберегти й запустити" (save and start) — the display restarts and shows live data.
 
-To change settings, hold the **BOOT** button for 5 seconds while the display is running.
+To change settings, hold the **BOOT** button for 5 seconds while the display is running. The saved values stay
+filled in, and the saved logger is checked again automatically.
+
+To erase everything and start from scratch (for example, before giving the display to someone else): in setup mode,
+release BOOT and hold it for 5 seconds again, or tap "Скинути все" at the bottom of the setup page. Flashing the full
+image at `0x0` erases the settings too.
 Event log: `http://<display address>/log`.
 
 The Wi-Fi password is stored unencrypted in the board's flash (as in most devices of this kind).

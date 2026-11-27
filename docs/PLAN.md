@@ -107,6 +107,10 @@ First start (no saved settings), holding BOOT for 5 s, or the `setup` serial com
       The Kyiv group can also be typed manually (a comma is accepted as the decimal separator).
 3. "Готово" → saved to NVS → restart → normal operation.
 
+Entering setup via BOOT keeps the saved values; once Wi-Fi connects, a saved logger is re-checked automatically so the
+board shows a real check mark. Holding BOOT for 5 s again in setup mode (after releasing it) erases everything and
+restarts as a new display; the setup page has "Скинути все" for the same.
+
 Stored in NVS: Wi-Fi SSID and password, logger serial, last working logger IP, `regionId` and name, outage provider
 and group, Kyiv street/house IDs and address. Nothing secret is in the repository. The Wi-Fi password in NVS is not
 encrypted (as in most such devices) — the README says so.
