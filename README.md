@@ -7,7 +7,8 @@ A small screen for the bedside table or the kitchen that shows what matters duri
 - **battery charge %** and whether it is charging or discharging,
 - the home's **power consumption**,
 - an **air-raid alert** for your community (optional, Ukraine),
-- the **power outage schedule** on a second screen: Kyiv (by address) and Zhytomyr region (by group), optional.
+- the **power outage schedule**: the current interval as a bar at the bottom and the next ones on a second screen —
+  Kyiv (by address) and Zhytomyr region (by group), optional.
 
 No Deye/Solarman cloud, no accounts, no tokens: the display reads the logger directly on your home network
 and **never writes anything to the inverter** (read-only Modbus function `0x03`).
@@ -16,13 +17,13 @@ The on-device interface is in Ukrainian.
 
 | Grid on | Alert, grid off | Setup |
 | --- | --- | --- |
-| ![](docs/design/tiles_calm.png) | ![](docs/design/tiles_red_off.png) | ![](docs/design/setup_start.png) |
+| ![](docs/design/tiles_bar_on.png) | ![](docs/design/tiles_bar_off_alert.png) | ![](docs/design/setup_start.png) |
 
 | Outage schedule (swipe) | No schedule data |
 | --- | --- |
 | ![](docs/design/map_both.png) | ![](docs/design/map_no_tomorrow.png) |
 
-> Status: **0.2.6, running on real hardware.** Details: [`docs/PLAN.md`](docs/PLAN.md).
+> Status: **0.2.7, running on real hardware.** Details: [`docs/PLAN.md`](docs/PLAN.md).
 
 ## What you need
 
