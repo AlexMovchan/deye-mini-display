@@ -39,6 +39,8 @@ struct Row {
   char text[24] = "";   // "14:00–18:00"
   bool light = false;   // білим (є) / червоним (немає)
   bool tomorrow = false;
+  bool current = false;  // проміжок, що триває зараз (обвідка білим)
+  char note[40] = "";    // «зараз · ще 9 г 50 хв» / «завтра · 2 год» / «3 год» (макет A, 27.11.2026)
 };
 
 enum class MapKind : uint8_t { Rows, Emergency, NoData };

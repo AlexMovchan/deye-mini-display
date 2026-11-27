@@ -230,14 +230,26 @@ void createMain() {
   lv_obj_set_pos(S.msgText, 14, 76);
 }
 
-// ── Екран 2: графік відключень — до 4 рядків-проміжків від поточного (рішення власника 26.11.2026) ──
-// «14:00–18:00» білим — світло є, червоним — немає. Замість рядків — «Екстрені відключення» або «Даних немає».
-constexpr int CARD_W = 240 - 2 * M;
-constexpr int ROWS_Y0 = 40, ROWS_Y1 = 320 - 2 * M - 8;
+// ── Екран 2: графік відключень — макет A (рішення власника 27.11.2026) ──
+// Рядок згори як на основному екрані (черга, Wi-Fi, час), під ним до 4 блоків-проміжків від поточного:
+// світло є — сіра картка з жовтою блискавкою, немає — темно-червона з перекресленою; поточний обведено білим.
+// У блоці — «14:00–18:00» і підпис «зараз · ще 2 г 45 хв» / «завтра · 2 год». Замість блоків — «Екстрені
+// відключення» або «Даних немає».
+constexpr Rgb OFF_BG = 0x3B1218, OFF_EDGE = 0x7A2530;
+constexpr int BLK_Y0 = M + TOP_H + GAP;                                        // 44
+constexpr int BLK_H = (320 - M - BLK_Y0 - (outage::ROWS - 1) * GAP) / outage::ROWS;  // 62
+constexpr int BLK_W = 240 - 2 * M;
+// ⚡ поменше (15×19) для блоків
+const lv_point_precise_t BOLT_S[] = {{11, 0}, {1, 11}, {8, 11}, {7, 18}, {15, 7}, {8, 7}, {11, 0}};
+const lv_point_precise_t SLASH_S[] = {{0, 1}, {15, 19}};
+
+struct BlockUi {
+  lv_obj_t *box, *bolt, *slash, *time, *note;
+};
 
 struct MapUi {
-  lv_obj_t *scr, *card, *title, *clock, *message;
-  lv_obj_t *row[outage::ROWS], *rowNote[outage::ROWS];
+  lv_obj_t *scr, *topBox, *title, *clock, *msgBox, *message;
+  BlockUi b[outage::ROWS];
   WifiUi wifi;
 } G;
 
@@ -245,33 +257,39 @@ void createMap() {
   G.scr = lv_obj_create(nullptr);
   lv_obj_remove_flag(G.scr, LV_OBJ_FLAG_SCROLLABLE);
   lv_obj_set_style_bg_color(G.scr, c(col::FRAME_CALM), 0);
-  G.card = box(G.scr, M, M, CARD_W, 320 - 2 * M, col::CARD, 10);
-  lv_obj_set_style_border_width(G.card, 2, 0);
-  lv_obj_set_style_border_color(G.card, c(col::CARD_EDGE), 0);
-  G.title = label(G.card, &inter_14_semi, col::TEXT);
+  // рядок згори — у тих самих пікселях, що й на основному екрані (свайп без зсуву)
+  G.topBox = box(G.scr, M, M, 240 - 2 * M, TOP_H, col::CARD, 8);
+  lv_obj_set_style_border_width(G.topBox, 2, 0);
+  lv_obj_set_style_border_color(G.topBox, c(col::CARD_EDGE), 0);
+  G.title = label(G.topBox, &inter_14_semi, col::TEXT);
   lv_obj_set_x(G.title, 10);
   baseline(G.title, 20);
-  G.clock = label(G.card, &inter_14_semi, col::TEXT);
+  G.clock = label(G.topBox, &inter_14_semi, col::TEXT);
   lv_obj_set_width(G.clock, 44);
   lv_obj_set_style_text_align(G.clock, LV_TEXT_ALIGN_RIGHT, 0);
-  lv_obj_set_x(G.clock, 240 - 2 * M - 10 - 44);  // як на основному екрані: рамка картки 2 px = рамка рядка тривоги
+  lv_obj_set_x(G.clock, 240 - 2 * M - 10 - 44);
   baseline(G.clock, 20);
-  createWifi(G.wifi, G.card);
-  // 4 рядки рівномірно на всю висоту під заголовком
-  const int step = (ROWS_Y1 - ROWS_Y0) / outage::ROWS;
+  createWifi(G.wifi, G.topBox);
   for (int k = 0; k < outage::ROWS; k++) {
-    int base = ROWS_Y0 + step * k + step / 2 + 8;
-    G.row[k] = label(G.card, &inter_18_semi, col::TEXT);
-    lv_obj_set_x(G.row[k], 16);
-    baseline(G.row[k], base);
-    G.rowNote[k] = label(G.card, &inter_12, col::MUTED);
-    lv_label_set_text(G.rowNote[k], "завтра");
-    lv_obj_set_x(G.rowNote[k], CARD_W - 4 - 16 - textWidth("завтра", &inter_12));
-    baseline(G.rowNote[k], base);
+    BlockUi& u = G.b[k];
+    u.box = box(G.scr, M, BLK_Y0 + k * (BLK_H + GAP), BLK_W, BLK_H, col::CARD, 10);
+    lv_obj_set_style_border_width(u.box, 2, 0);
+    u.bolt = line(u.box, BOLT_S, 7, 2, col::BOLT);
+    u.slash = line(u.box, SLASH_S, 2, 2, col::ALERT_RED);
+    for (lv_obj_t* o : {u.bolt, u.slash}) lv_obj_set_pos(o, 10, (BLK_H - 4 - 19) / 2);
+    u.time = label(u.box, &inter_18_semi, col::TEXT);
+    lv_obj_set_x(u.time, 36);
+    baseline(u.time, 26);
+    u.note = label(u.box, &inter_12, col::MUTED);
+    lv_obj_set_x(u.note, 36);
+    baseline(u.note, 45);
   }
-  G.message = wrapLabel(G.card, &inter_18_semi, col::MUTED, CARD_W - 32);
+  G.msgBox = box(G.scr, M, BLK_Y0, BLK_W, 320 - M - BLK_Y0, col::CARD, 10);
+  lv_obj_set_style_border_width(G.msgBox, 2, 0);
+  lv_obj_set_style_border_color(G.msgBox, c(col::CARD_EDGE), 0);
+  G.message = wrapLabel(G.msgBox, &inter_18_semi, col::MUTED, BLK_W - 32);
   lv_obj_set_style_text_align(G.message, LV_TEXT_ALIGN_CENTER, 0);
-  lv_obj_set_pos(G.message, 14, 130);
+  lv_obj_set_pos(G.message, 14, 110);
 }
 
 // ── Налаштування ──
@@ -420,12 +438,22 @@ void showMap(const outage::MapModel& m, tiles::Wifi wifi) {
   applyWifi(G.wifi, wifi, 240 - 2 * M - 10 - textWidth(m.clock, &inter_14_semi) - 6 - 4, 6);  // як на основному
   bool rows = m.kind == outage::MapKind::Rows;
   for (int k = 0; k < outage::ROWS; k++) {
+    BlockUi& u = G.b[k];
     bool on = rows && k < m.count;
-    show(G.row[k], on);
-    show(G.rowNote[k], on && m.rows[k].tomorrow);
-    if (on) setText(G.row[k], m.rows[k].text, m.rows[k].light ? col::TEXT : col::ALERT_RED);
+    show(u.box, on);
+    if (!on) continue;
+    const outage::Row& r = m.rows[k];
+    lv_obj_set_style_bg_color(u.box, c(r.light ? col::CARD : OFF_BG), 0);
+    lv_obj_set_style_border_color(u.box, c(r.current ? col::TEXT : r.light ? col::CARD_EDGE : OFF_EDGE), 0);
+    lv_obj_set_style_line_color(u.bolt, c(r.light ? col::BOLT : col::ALERT_RED), 0);
+    show(u.slash, !r.light);
+    setText(u.time, r.text, r.light ? col::TEXT : col::ALERT_RED);
+    setText(u.note, r.note, col::MUTED);
+    // без підпису — час по центру блока
+    show(u.note, r.note[0] != 0);
+    baseline(u.time, r.note[0] ? 26 : 36);
   }
-  show(G.message, !rows);
+  show(G.msgBox, !rows);
   if (m.kind == outage::MapKind::Emergency) setText(G.message, "Екстрені відключення", col::ALERT_RED);
   else if (m.kind == outage::MapKind::NoData) setText(G.message, "Даних немає", col::MUTED);
   loadScreen(G.scr);

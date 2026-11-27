@@ -351,6 +351,8 @@ static void test_outage_map() {
   TEST_ASSERT_EQUAL(1, m.count);
   TEST_ASSERT_EQUAL_STRING("20:00–24:00", m.rows[0].text);
   TEST_ASSERT_TRUE(m.rows[0].light);
+  TEST_ASSERT_TRUE(m.rows[0].current);
+  TEST_ASSERT_EQUAL_STRING("зараз", m.rows[0].note);  // кінець невідомий — завтра ще не опубліковане
   // 07:15: поточне відключення 06:00–10:00, далі 10:00–15:00 є, 15:00–20:00 немає, 20:00–24:00 є
   m = outage::buildMap(&s, "47.1", kyiv(26, 7, 15), tiles::color::FRAME_CALM, 48 * 3600);
   TEST_ASSERT_EQUAL(4, m.count);
@@ -360,6 +362,10 @@ static void test_outage_map() {
   TEST_ASSERT_TRUE(m.rows[1].light);
   TEST_ASSERT_EQUAL_STRING("15:00–20:00", m.rows[2].text);
   TEST_ASSERT_EQUAL_STRING("20:00–24:00", m.rows[3].text);
+  TEST_ASSERT_EQUAL_STRING("зараз · ще 2 г 45 хв", m.rows[0].note);
+  TEST_ASSERT_FALSE(m.rows[1].current);
+  TEST_ASSERT_EQUAL_STRING("5 год", m.rows[1].note);
+  TEST_ASSERT_EQUAL_STRING("", m.rows[3].note);
   // через північ, коли завтра відоме: 20:00–… триває до 04:00 наступної доби
   outage::Schedule s2 = s;
   s2.days[1].status = outage::Status::Applies;
@@ -370,6 +376,11 @@ static void test_outage_map() {
   TEST_ASSERT_EQUAL_STRING("04:00–08:00", m.rows[1].text);
   TEST_ASSERT_TRUE(m.rows[1].tomorrow);
   TEST_ASSERT_EQUAL_STRING("08:00–24:00", m.rows[2].text);
+  TEST_ASSERT_EQUAL_STRING("зараз · ще 7 год", m.rows[0].note);
+  TEST_ASSERT_EQUAL_STRING("завтра · 4 год", m.rows[1].note);
+  TEST_ASSERT_EQUAL_STRING("завтра", m.rows[2].note);
+  m = outage::buildMap(&s2, "47.1", kyiv(26, 22, 50), tiles::color::FRAME_CALM, 12 * 3600);
+  TEST_ASSERT_EQUAL_STRING("зараз · ще 5 г 10 хв", m.rows[0].note);
   // екстрені; немає даних (немає графіка, застарілий, наступний день без графіка)
   s2.days[0].status = outage::Status::Emergency;
   TEST_ASSERT_EQUAL(outage::MapKind::Emergency, outage::buildMap(&s2, "47.1", kyiv(26, 12, 0), 0, 12 * 3600).kind);

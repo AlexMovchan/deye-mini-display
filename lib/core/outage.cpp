@@ -28,6 +28,13 @@ void hhmm(char* out, size_t n, int slot) {  // слот 0..96 → "HH:MM" (96 і
   if (slot == 48 || slot == 96) m = 24 * 60;
   snprintf(out, n, "%02d:%02d", m / 60, m % 60);
 }
+// Тривалість: «2 год», «1 г 30 хв», «30 хв»
+void duration(char* out, size_t n, int minutes) {
+  int h = minutes / 60, m = minutes % 60;
+  if (h && m) snprintf(out, n, "%d г %d хв", h, m);
+  else if (h) snprintf(out, n, "%d год", h);
+  else snprintf(out, n, "%d хв", m);
+}
 }  // namespace
 
 bool validGroup(const char* g) {
@@ -112,6 +119,15 @@ MapModel buildMap(const Schedule* s, const char* group, int64_t now, tiles::Rgb 
     snprintf(r.text, sizeof r.text, "%s–%s", a, b);
     r.light = t[start] == 0;
     r.tomorrow = start >= 48;
+    r.current = start <= cur;
+    // Кінець відомий, лише якщо далі йде інший стан (а не «завтра ще не опубліковане» чи кінець даних)
+    bool known = end < 96 && t[end] != 2;
+    char d[24] = "";
+    if (known) duration(d, sizeof d, r.current ? end * 30 - (l.hour * 60 + l.minute) : (end - start) * 30);
+    const char* sep = *d ? " · " : "";
+    if (r.current) snprintf(r.note, sizeof r.note, "зараз%s%s", *d ? " · ще " : "", d);
+    else if (r.tomorrow) snprintf(r.note, sizeof r.note, "завтра%s%s", sep, d);
+    else snprintf(r.note, sizeof r.note, "%s", d);
     start = end;
   }
   m.kind = MapKind::Rows;
