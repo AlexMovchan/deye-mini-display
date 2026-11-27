@@ -37,17 +37,50 @@ The on-device interface is in Ukrainian.
 
 ### From the browser (Chrome or Edge)
 
-1. Download the files from the [latest release](https://github.com/AlexMovchan/deye-mini-display/releases/latest).
-2. Open <https://espressif.github.io/esptool-js/>, set Baudrate **460800**, press **Connect** and pick the
-   CH340 / USB Serial port.
-3. Flash one file:
+No software to install: the official Espressif flasher runs in the browser —
+<https://espressif.github.io/esptool-js/>. It needs **desktop Chrome or Edge** (Web Serial); it does not work in
+Firefox, Safari or on phones.
 
-   | File | Address | When |
-   | --- | --- | --- |
-   | `deye-mini-display-<version>.bin` | **`0x0`** | first install — settings are **erased** |
-   | `deye-mini-display-<version>-update.bin` | **`0x10000`** | update — settings are **kept** |
+Each [release](https://github.com/AlexMovchan/deye-mini-display/releases/latest) has two files:
 
-4. Press **Program**, wait for "Leaving…", press **Disconnect** in the browser and **RST** on the board.
+| File | Address | When |
+| --- | --- | --- |
+| `deye-mini-display-<version>.bin` | **`0x0`** | first install, or to start from scratch — settings are **erased** |
+| `deye-mini-display-<version>-update.bin` | **`0x10000`** | update — Wi-Fi, logger and other settings are **kept** |
+
+#### Before you start
+
+- Use a USB-C cable that carries data (some cables are charge-only — the port then never shows up).
+- The board uses a **CH340** USB-serial chip. If no new port appears when you plug it in, install the CH340 driver
+  (Windows: "CH341SER" from the chip maker WCH; macOS 12+ and Linux usually have it built in).
+- Close anything else that may hold the port (Arduino IDE, PlatformIO monitor, another esptool-js tab).
+
+#### First install
+
+1. Download `deye-mini-display-<version>.bin` (the file **without** `-update`) from the
+   [latest release](https://github.com/AlexMovchan/deye-mini-display/releases/latest).
+2. Connect the board to the computer and open <https://espressif.github.io/esptool-js/>.
+3. In the **Program** section set **Baudrate** to **460800**, press **Connect** and pick the port
+   (`USB-SERIAL CH340` / `USB Serial`).
+   - If it does not connect: hold **BOOT** on the board, press and release **RST**, release **BOOT**, then press
+     **Connect** again.
+4. In the file table set **Flash Address** to **`0x0`** and choose the downloaded file.
+5. Press **Program** and wait until the log shows "Leaving…" (about a minute).
+6. Press **Disconnect** in the browser, then **RST** on the board.
+7. The display shows a QR code for the **Deye-Setup** network — continue with [First setup](#first-setup).
+
+The full image also erases any settings left on the board, so this is the way to hand a display to someone else
+"as new".
+
+#### Update
+
+1. Download `deye-mini-display-<version>-update.bin` from the
+   [latest release](https://github.com/AlexMovchan/deye-mini-display/releases/latest).
+2. Open <https://espressif.github.io/esptool-js/>, Baudrate **460800**, **Connect**, pick the port (same as above).
+3. Set **Flash Address** to **`0x10000`** and choose the `-update.bin` file.
+   ⚠️ Do not flash the update file at `0x0`, and do not press **Erase Flash** — that wipes the settings.
+4. Press **Program**, wait for "Leaving…", press **Disconnect** and then **RST** on the board.
+5. The display starts with your settings as before; the version is shown in the log at `http://<display address>/log`.
 
 ### With PlatformIO
 
