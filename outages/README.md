@@ -37,6 +37,9 @@ with a timestamp is better than a wrong one. The display shows "no data" when th
 
 Published at `https://alexmovchan.github.io/deye-mini-display/outages/<provider>/<group>.json`.
 
+GitHub's own `schedule` trigger fires rarely for small repositories, so a Cloudflare Worker with a Cron Trigger
+starts the workflow every 30 minutes via `workflow_dispatch` — see [`tools/cf-trigger/`](../tools/cf-trigger/README.md).
+
 ## Providers
 
 | id | Region | Source | Format |

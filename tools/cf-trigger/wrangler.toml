@@ -1,0 +1,14 @@
+name = "deye-outages-trigger"
+main = "worker.js"
+compatibility_date = "2025-06-01"
+
+# No public URL: the Worker only runs on its schedule.
+workers_dev = false
+
+[triggers]
+# Every 30 min at :05 and :35 (UTC). GitHub's own schedule in outages.yml (:07/:37) stays as a fallback;
+# a second run that overlaps just waits in the "pages" concurrency group.
+crons = ["5,35 * * * *"]
+
+[observability]
+enabled = true

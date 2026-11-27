@@ -164,7 +164,7 @@ specific city and a source appear.
 1. **Scheduled GitHub Actions runs are sparse.** The `schedule` trigger (every 30 min) did not fire on the first day,
    then fired only twice in the next ~24 h (2026-11-27 02:23 and 11:22 UTC). On hold — monitoring with
    `gh run list --workflow outages.yml` (the event column shows `schedule` vs `workflow_dispatch`).
-   If it stays this sparse, the planned fix is a Cloudflare Worker with a Cron Trigger that only calls
+   Fix (2026-11-27, `tools/cf-trigger/`): a Cloudflare Worker with a Cron Trigger that only calls
    `workflow_dispatch` every 30 min (a fine-grained token limited to Actions on this repo, stored as a Worker
    secret). The Python adapters, GitHub Pages URLs and the firmware stay unchanged; the GitHub `schedule` stays as
    a fallback.
