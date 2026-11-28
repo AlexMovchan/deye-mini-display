@@ -4,3 +4,7 @@ tools/check_board.log
 *.ppm
 __pycache__/
 outages/out/
+
+# wrangler cache (Cloudflare account info)
+.wrangler/
+.dev.vars
